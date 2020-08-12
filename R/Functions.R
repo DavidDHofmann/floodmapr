@@ -409,7 +409,7 @@ modis_percentiles <- function(x, water, dryland){
   while (length(results) < limit){
 
     # Read data using api
-		response <- httr::GET(
+    response <- httr::GET(
         url   = url
       , query = c(args, page_num = page_num)
       , httr::add_headers(Accept = "text/csv")
