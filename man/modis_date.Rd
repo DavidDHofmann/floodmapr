@@ -14,5 +14,6 @@ be extracted}
 character. Dates as derived from the MODIS filename
 }
 \description{
-Function that allows you to retrieve the date from a MODIS file
+Function to retrieve the date from a MODIS file. Note that this function only
+works with the original MODIS filenames
 }

@@ -15,9 +15,10 @@ NULL
 ################################################################################
 #' Download MODIS products
 #'
-#' This function wraps multiple functions that allow to identify, filter,
-#' download, and process modis files that can then be classified into floodmaps
-#' using \code{modis_classify}. Note that the filenames simply correspond to the
+#' This function is used to download and process modis files that can then be
+#' classified into floodmaps using \code{modis_classify}. Important: MODIS bands
+#' 1-7 will be downloaded, yet only band 7 should be used in
+#' \code{modis_classify}. Note that the filenames simply correspond to the
 #' aqcuisition date of the MODIS satellite imagery.
 #' @export
 #' @param date character vector of dates. Dates for which a modis image should be
@@ -44,16 +45,6 @@ modis_download <- function(
   if (missing(dates)){stop("Provide dates")}
   if (missing(username)){stop("Provide username to access earth data")}
   if (missing(password)){stop("Provide password to access earth data")}
-
-  # Check if the final file already exists
-  if (!overwrite){
-    exists <- file.exists(paste0(outdir, "/", dates, ".tif"))
-    if (sum(exists) > 0){
-      cat("Some files already exist. Only downloading data for those files that
-      are still missing\n")
-    }
-    dates <- dates[!exists]
-  }
 
   # Retrieve area of interest
   aoi <- masks_polygons[masks_polygons$Description == "aoi", ]
@@ -132,6 +123,7 @@ modis_download <- function(
     )
     return(stitched[x])
   }) %>% do.call(c, .)
+  cat("Finished!")
   return(final)
 }
 
@@ -212,7 +204,8 @@ modis_classify <- function(
 ################################################################################
 #' Retrieve Date from MODIS Filenames
 #'
-#' Function that allows you to retrieve the date from a MODIS file
+#' Function to retrieve the date from a MODIS file. Note that this function only
+#' works with the original MODIS filenames
 #' @export
 #' @param filename character. Filename(s) of the files for which a date should
 #' be extracted
@@ -321,6 +314,7 @@ modis_specs <- function(x = NULL, water = NULL, dryland = NULL){
 
     # Bind the extracted values together
     specs <- rbind(wat, dry)
+    specs <- na.omit(specs)
 
     # Plot the two densities for the spectral signatures of each value
     ggplot(specs, aes(V1, fill = Class)) + geom_density(alpha = 0.2)
@@ -328,8 +322,7 @@ modis_specs <- function(x = NULL, water = NULL, dryland = NULL){
 
 #' Calculate Reflectance Percentiles
 #'
-#' Function that allows you to calculate percentiles in water and dryland
-#' reflectance values
+#' Function to calculate percentiles in water and dryland reflectance values
 #' @export
 #' @param x \code{RasterLayer} of MODIS band 7
 #' @param water \code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
@@ -632,7 +625,7 @@ modis_percentiles <- function(x, water, dryland){
   return(filename)
 }
 
-# Function that allows you to stitch modis tiles together
+# Function to stitch modis tiles together
 .modisStitch <- function(
     filepaths = NULL
   , outdir    = getwd()

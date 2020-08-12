@@ -37,5 +37,6 @@ Character vector of filename pointing to the downloaded files
 \description{
 This function wraps multiple functions that allow to identify, filter,
 download, and process modis files that can then be classified into floodmaps
-using
+using \code{modis_classify}. Note that the filenames simply correspond to the
+aqcuisition date of the MODIS satellite imagery.
 }
