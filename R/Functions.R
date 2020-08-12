@@ -422,7 +422,7 @@ modis_percentiles <- function(x, water, dryland){
     if (httr::http_type(response) == "text/csv"){
 
       # Read content as dataframe
-			data <- utils::read.csv(
+      data <- utils::read.csv(
           text             = httr::content(response, as = "text")
         , check.names      = FALSE
         , stringsAsFactors = FALSE
