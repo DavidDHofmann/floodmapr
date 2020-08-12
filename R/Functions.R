@@ -1,127 +1,112 @@
 ################################################################################
-#### DELETE
+#### Load Dependencies
 ################################################################################
-# Description: This script allows to download, process and classify MODIS
-# imagery automatically.
-
-# Clear R's brain
-rm(list = ls())
-
-# Load required packages
-library(tidyverse)
-library(raster)
-library(terra)
-library(gdalUtils)
-library(lubridate)
-library(rgeos)
-library(velox)
-library(watermapr) # My own package -> see github
-
-# Set the working directory
-wd <- "/home/david/Schreibtisch"
-setwd(wd)
-
-# Make use of multiple cores
-beginCluster()
-
-# Specify an area of interest
-aoi <- shapefile("/home/david/ownCloud/University/15. PhD/00_WildDogs/03_Data/01_RawData/MODIS/MCD43A4/02_Masks/OkavangoExtent")
-
-# Specify your login credentials for EarthData
-username <- "DoDx9"
-password <- "EarthData99"
-
-# Do you want to use dynamic watermasks? Note that this will drastically
-# increase the time required to obtain floodmaps
-dynamic <- TRUE
-
-# Specify dates for which you want inundation maps
-dates <- c(
-    "2012-01-09"
-  , "2012-01-17"
-)
+#' @import raster terra velox ggplot2 sp
+#' @importFrom dplyr group_by mutate_all
+#' @importFrom magrittr %>%
+#' @importFrom tidyr nest
+#' @importFrom lubridate years
+#' @importFrom rgeos gBuffer
+#' @importFrom gdalUtils get_subdatasets gdal_translate gdalbuildvrt
+NULL
 
 ################################################################################
 #### Level 1 Functions
 ################################################################################
 #' Download MODIS products
 #'
-#' This function uses the data from the \code{modis_files()} function to
-#' download the desired MODIS files.
+#' This function wraps multiple functions that allow to identify, filter,
+#' download, and process modis files that can then be classified into floodmaps
+#' using \code{modis_classify}. Note that the filenames simply correspond to the
+#' aqcuisition date of the MODIS satellite imagery.
 #' @export
-#' @param dataframe \code{data.frame}. Selection of the files that should be
-#' downloaded (see \code{modis_files()})
-#' @param path character. Path were the downloaded files should be stored to
+#' @param date character vector of dates. Dates for which a modis image should be
+#' downloaded. Needs to be of format "YYYY-mm-dd".
+#' @param outdir character. Directory were the processed files should be stored
+#' to. This is the raw data that will be used for floodmapping
+#' @param tempdir character. Directory were intermediary files should be stored.
+#' By default this is determined by \code{tempdir()}. However, you can change
+#' this to another folder.
 #' @param username character. Username of your EarthData account
 #' @param password character. Password of your EarthData account
 #' @param overwrite logical. If such a file already exists in the path, should
 #' it be overwritten?
 #' @return Character vector of filename pointing to the downloaded files
 modis_download <- function(
-    date      = NULL
+    dates     = NULL
   , outdir    = getwd()
+  , tmpdir    = tempdir()
   , username  = NULL
   , password  = NULL
   , overwrite = F){
 
-  # Identify all files that we need to download
-  todownload <- lapply(1:length(date), function(x){
+  # Some error messsages
+  if (missing(dates)){stop("Provide dates")}
+  if (missing(username)){stop("Provide username to access earth data")}
+  if (missing(password)){stop("Provide password to access earth data")}
 
-    # Show available files
-    files <- modis_files(
+  # Check if the final file already exists
+  if (!overwrite){
+    exists <- file.exists(paste0(outdir, "/", dates, ".tif"))
+    if (sum(exists) > 0){
+      cat("Some files already exist. Only downloading data for those files that
+      are still missing\n")
+    }
+    dates <- dates[!exists]
+  }
+
+  # Retrieve area of interest
+  aoi <- masks_polygons[masks_polygons$Description == "aoi", ]
+
+  # Identify all files that we need to download. For each date there should only
+  # be two (two tiles). Since the search also returns files slightly before or
+  # after the desired date, we need to subset.
+  todownload <- lapply(1:length(dates), function(x){
+    files <- .modisFiles(
         product     = "MCD43A4"
       , version     = "006"
       , start_date  = dates[x]
       , end_date    = dates[x]
       , aoi         = aoi
       , limit       = 100
-    )
-
-    # Subset to exact date (should be two files)
-    files <- subset(files, as.character(date) == date[x])
-
-    # Make sure there are exactly 2 files
+    ) %>% subset(as.character(date) == dates[x])
     if (nrow(files) != 2){
       stop("There are more than two files!\n")
     }
-
-    # Return dataframe of all files that need to be downloaded
     return(files)
   }) %>% do.call(rbind, .)
 
-  # Loop through all files
+  # Download all selected files to a temporary directory
   downloaded <- rep(NA, nrow(todownload))
   for (i in 1:nrow(todownload)){
-
-    # And download the respective files
+    cat("Downloading tiles:", i, "out of", nrow(todownload), "\n")
     downloaded[i] <- .modisDownload(
         dataframe = todownload[i, ]
-      , path      = tempdir()
+      , path      = tmpdir
       , username  = username
       , password  = password
       , overwrite = overwrite
     )
-
-    # Give a progress update
-    cat(i, "out of", nrow(todownload), "tiles downloaded\n")
   }
 
   # Extract tiffs
+  cat("All tiles downloaded. Extracting tiffs from hdf files now...\n")
   extracted <- lapply(1:length(downloaded), function(x){
-    modis_extract(
+    .modisExtract(
         filepath  = downloaded[x]
-      , outdir    = tempdir()
+      , outdir    = tmpdir
       , overwrite = overwrite
+      , removeHDF = F
     )
   }) %>% do.call(c, .)
 
-  # Group tiles that belong to the same date
-  dat <- data.frame(Path = extracted, Date = modisDate(basename(extracted)))
+  # There are two tiles per date. We need to stitch them. Thus, create a tibble
+  # that shows which files need to be combined
+  cat("All hdf files extracted. Stitching tiles now...\n")
+  dat <- data.frame(Path = extracted, Date = modis_date(basename(extracted)))
   dat <- dat %>% group_by(date) %>% nest()
-
-  # Stitch tiles
   stitched <- lapply(1:nrow(dat), function(x){
-    modis_stitch(
+    .modisStitch(
         filepaths = dat$data[[x]]$Path
       , outdir    = outdir
       , outname   = paste0(dat$date[x], ".tif")
@@ -130,13 +115,14 @@ modis_download <- function(
   }) %>% do.call(c, .)
 
   # Reproject and crop stitched raster, then save
+  cat("All tiles stitched. Reprojecting and cropping final tiles now...\n")
   final <- lapply(1:length(stitched), function(x){
     r <- rast(stitched[x])
     r <- project(r, y = CRS("+init=epsg:4326"), method = "near")
     r <- crop(r, aoi)
     names(r) <- paste0("Band_", 1:7)
 
-    # Store it
+    # Store it and return the directory
     r <- writeRaster(
         r
       , filename  = stitched[x]
@@ -144,8 +130,6 @@ modis_download <- function(
       , overwrite = TRUE
       , options   = c("INTERLEAVE = BAND", "COMPRESS = LZW")
     )
-
-    # Return the final directory
     return(stitched[x])
   }) %>% do.call(c, .)
   return(final)
@@ -153,31 +137,43 @@ modis_download <- function(
 
 #' Classify MODIS Image
 #'
-#' Function to classify a MODIS image into the binary categories water (valued
-#' 1) and dryland (valued 0)
+#' Function to classify a MODIS image into the binary categories water and
+#' dryland. Water = 1, Dryland = 0.
 #' @export
 #' @param x \code{RasterLayer} of MODIS band 7
-#' @param water \code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
-#' representing permanent waters
-#' @param dryland \code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
-#' representing permanent dryland
+#' @param watermask \code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
+#' representing the water-polygon that is used to extract reflectances of water
+#' on MODIS band 7.
+#' @param drymask \code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
+#' representing the dryland-polygon that is used to extract reflectances of
+#' water on MODIS band 7.
+#' @param ignore.bimodality logical. Should the bimodality check be ignored?
 #' @return \code{RasterLayer} of classified MODIS image
-modis_classify <- function(x, water, dryland){
+modis_classify <- function(
+    x                 = NULL
+  , watermask         = NULL
+  , drymask           = NULL
+  , ignore.bimodality = F){
+
+  # Retrieve water, nowater and dryland masks
+  water   <- masks_polygons[masks_polygons$Description == "water", ]
+  dryland <- masks_polygons[masks_polygons$Description == "dryland", ]
+  nowater <- masks_polygons[masks_polygons$Description == "nowater", ]
+
+  # In case a watermask or drymask is provided, use them
+  if (!is.null(watermask)){water <- watermask}
+  if (!is.null(drymask)){dryland <- drymask}
 
   # Check if the image is bimodal
-  perc <- modis_percentiles(x, water = water, dryland = dryland)
-  bimodal <- perc$WaterPercentiles[2] - 10 / 255 < perc$DrylandPercentiles[1]
+  if (!ignore.bimodality){
+    perc <- modis_percentiles(x, water = water, dryland = dryland)
+    bimodal <- perc$WaterPercentiles[2] - 10 / 255 < perc$DrylandPercentiles[1]
 
-  # If the image is not bimodal, we can return a message and skip the rest
-  if (!bimodal){
-    stop("Image not bimodal. Could not classify floodmap.")
+    # If the image is not bimodal, we can return a message and skip the rest
+    if (!bimodal){
+      stop("Image not bimodal. Could not classify floodmap.")
+    }
   }
-
-  # Make sure that the water and dryland masks have the same crs as the modis
-  # layer
-  water   <- spTransform(water, crs(x))
-  dryland <- spTransform(dryland, crs(x))
-  nowater <- spTransform(nowater, crs(x))
 
   # Extract the spectral values of band 7 below the dryland and water
   # polygons. To speed up the extraction we coerce the MODIS band to a velox
@@ -214,230 +210,6 @@ modis_classify <- function(x, water, dryland){
 ################################################################################
 #### Level 2 Functions
 ################################################################################
-#' Show available MODIS products
-#'
-#' Function to show available products. This function allows you to determine
-#' which MODIS products are available for download.
-#' @export
-#' @param product character indicating the desired products
-#' @return \code{data.frame} containing all available products that fulfill the
-#' search requirement. The column \code{short_name} can be used to retrieve
-#' available files using the \code{modis_files()} function.
-#' @examples
-#' modis_products("MCD43A4")
-modis_products <- function(product){
-
-  # Retrieve available products from cmr
-  prods <- read.csv("https://cmr.earthdata.nasa.gov/search/humanizers/report")
-
-  # Remove undesired columns
-  prods$original_value <- NULL
-  prods$humanized_value <- NULL
-
-  # Grep desired product
-  if (!missing(product)){
-
-    # If multiple products, paste them together into a single grep call
-    if (length(product) > 1){
-      product <- paste0(product, collapse = "|")
-    }
-
-    # Subset
-    prods <- prods[grep(product, prods$short_name), ]
-  }
-
-  # Coerce everything to character
-  prods <- dplyr::mutate_all(prods, as.character)
-
-  # Return unique entries
-  return(unique(prods))
-}
-
-#' Get Available Files of a MODIS Product
-#'
-#' Function to retrieve available files from a modis product. This function
-#' allows you to find and select files that you want to download later using
-#' \code{modis_download}.
-#' @export
-#' @param product character. Available products can be shown using
-#' \code{modis_products}
-#' @param version character. Indicates which version of the product should be
-#' used. By default this is set to "006"
-#' @param start_date character. Start date for the data requested formatted
-#' yyyy-mm-dd
-#' @param end_date character. End date for the data requested formatted
-#' yyyy-mm-dd
-#' @param aoi Any object from which an extent (using \code{bbox()} can be
-#' derived)
-#' @param limit positive integer. Number of results collected before the process
-#' is aborted
-#' @return \code{data.frame} containing some information about all files that
-#' can be downloaded. The column "Online Access URLs" can be used in the
-#' \code{modis_download()} function
-#' @examples
-#' files <- modis_files(product = "MCD43A4", version = "006", start_date =
-#' "2020-02-01", end_date = "2020-02-04", aoi = '21.75,-20.65,24.3,-18.15',
-#' limit = 100)
-modis_files <-  function(
-    product     = "MCD43A4"
-  , version     = "006"
-  , start_date  = NULL
-  , end_date    = NULL
-  , aoi         = NULL
-  , limit       = 100){
-
-  # Make sure the product exists
-  dd <- modis_products(product)
-  dd <- dd[dd$short_name == product & dd$version == version, ]
-
-  # In case there is no such data, interrupt. In case there are multiple sources
-  # of data, continue and use first
-  if (nrow(dd) < 1){
-    stop("Requested product not available")
-  } else if (nrow(dd) > 1){
-    warning("Multiple sources available, using first")
-    print(dd)
-    dd <- dd[1, ]
-  }
-
-  # Specify date suffix
-  datesuffix <- "T00:00:00Z"
-
-  # Convert dates to proper dates
-  start_date  <- as.Date(start_date)
-  end_date    <- as.Date(end_date)
-  temporal    <- paste0(start_date, datesuffix, ",", end_date, datesuffix)
-
-  # Put URLs together
-  cmr_host <- "https://cmr.earthdata.nasa.gov"
-  url <- file.path(cmr_host, "search/granules")
-
-  # Retrieve extent
-  ext <- .getExtent(aoi)
-
-  # Put query parameters together
-  params <- list(
-      short_name    = product
-    ,	temporal      = temporal
-    , downloadable  = "true"
-    , bounding_box  = ext
-  )
-
-  # Run query
-  results <- .getSearchResults(url = url, limit = limit, args = params)
-
-  # Identify modis dates
-  results <- cbind(results, modisDate(results$`Producer Granule ID`))
-
-  # Return the results
-  return(results)
-}
-
-#' Extract Modis Bands and Convert HDF to Raster
-#'
-#' Function to convert the downloaded hdf files to proper .tif rasters
-#' @export
-#' @param filepath character. Filepath pointing to the downloaded hdf files.
-#' Note that the filenames need to be unchanged and as downloaded from using
-#' \code{modis_download()}
-#' @param outdir character. Directory to which the converted file should be
-#' stored. By default it is stored in the same folder as the hdf file.
-#' @param removeHDF logical. Should the original hdf file be removed after
-#' conversion?
-#' @return filepath to the converted file
-modis_extract <- function(
-    filepath  = NULL
-  , outdir    = dirname(filepath)
-  , removeHDF = F
-  , overwrite = F){
-
-  # Extract the date from the modis file
-  date <- as.vector(as.matrix(modisDate(filepath)))
-
-  # Get all bands
-  bands <- get_subdatasets(filepath)
-
-  # Select the bands we want to keep
-  bands <- bands[grep("Nadir.*Band[1-7]", bands)]
-
-  # Create new filenames under which the bands will be stored
-  names <- paste0(dirname(filepath), "/", basename(bands), ".tif")
-
-  # Create output filename of the merged file
-  filename <- paste0(outdir, "/", basename(filepath), ".tif")
-
-  # Make sure the file does not already exist
-  if (file.exists(filename) & !overwrite){
-    warning(paste0("file ", filename, " already exists"))
-    return(filename)
-  }
-
-  # Convert the selected bands to tifs using the new names
-  for (j in 1:length(bands)){
-    gdal_translate(bands[j], dst_dataset = names[j])
-  }
-
-  # Stack them
-  r <- rast(names)
-
-  # Assign date as band names
-  names(r) <- paste0("Band_", 1:7)
-
-  # Store the stacked file
-  writeRaster(
-      r
-    , filename  = filename
-    , format    = "GTiff"
-    , overwrite = TRUE
-    , options   = c("INTERLEAVE = BAND", "COMPRESS = LZW")
-  )
-
-  # Remove the seperate bands
-  file.remove(names)
-
-  # In case the original HDF should be removed, do so
-  if (removeHDF){
-    file.remove(filepath)
-  }
-
-  # Return the location of the file
-  return(filename)
-}
-
-#' Stitch Modis Tiles
-#'
-#' Function that allows you to stitch modis tiles together
-#' @export
-#' @param filepaths character. Filepaths pointing to the tiff files as prepared
-#' using the \code{modis_extract} function. The selected files will be stitched
-#' @param outname character. Filepath and filename to which the stitched tiff
-#' should be stored
-#' @return character pointing to the stitched tiff file
-modis_stitch <- function(filepaths, outdir = getwd(), outname = NULL, overwrite = F){
-
-  # Create output name
-  filename <- paste0(outdir, "/", outname)
-  if (file.exists(filename) & !overwrite){
-    warning(paste0("file ", filename, " already exists"))
-    return(filename)
-  }
-
-  # Create a virtual raster
-  name <- tempfile(fileext = ".vrt")
-  gdalbuildvrt(gdalfile = filepaths, output.vrt = name)
-
-  # Coerce virtual raster to a true raster
-  gdal_translate(
-      src_dataset   = name
-    , dst_dataset   = filename
-    , output_Raster = TRUE
-    , options       = c("BIGTIFFS=YES")
-  )
-
-  # Return the filepath to the stitched file
-  return(filename)
-}
-
 #' Retrieve Date from MODIS Filenames
 #'
 #' Function that allows you to retrieve the date from a MODIS file
@@ -445,7 +217,7 @@ modis_stitch <- function(filepaths, outdir = getwd(), outname = NULL, overwrite 
 #' @param filename character. Filename(s) of the files for which a date should
 #' be extracted
 #' @return character. Dates as derived from the MODIS filename
-modisDate <- function(filename){
+modis_date <- function(filename){
   ff <- basename(filename)
   dot <- sapply(strsplit(ff, "\\."), '[', 2)
   dates <- gsub("[aA-zZ]", "", dot)
@@ -527,10 +299,9 @@ modis_watermask <- function(
 #' @return Plot of spatial reflectance values below the two polygons
 modis_specs <- function(x = NULL, water = NULL, dryland = NULL){
 
-    # Make sure that the water and dryland masks have the same crs as the modis
-    # layer
-    water   <- spTransform(water, crs(x))
-    dryland <- spTransform(dryland, crs(x))
+    # Retrieve water and dryland maps
+    water <- masks_polygons[masks_polygons$Description == "water", ]
+    dryland <- masks_polygons[masks_polygons$Description == "dryland", ]
 
     # Extract the spectral values of band 7 below the dryland and water polygons
     # To speed up the extraction we coerce the modis band to a velox raster
@@ -568,10 +339,9 @@ modis_specs <- function(x = NULL, water = NULL, dryland = NULL){
 #' @return dataframe of percentiles
 modis_percentiles <- function(x, water, dryland){
 
-  # Make sure that the water and dryland masks have the same crs as the modis
-  # layer
-  water   <- spTransform(water, crs(x))
-  dryland <- spTransform(dryland, crs(x))
+  # Retrieve water and dryland maps
+  water <- masks_polygons[masks_polygons$Description == "water", ]
+  dryland <- masks_polygons[masks_polygons$Description == "dryland", ]
 
   # Extract the spectral values of band 7 below the dryland and water polygons.
   # To speed up the extraction we coerce the modis band to a velox raster
@@ -713,4 +483,181 @@ modis_percentiles <- function(x, water, dryland){
   year  <- as.integer(substr(x, 1, 4))
   doy   <- as.integer(substr(x, 5, 8))
   return(as.Date(doy, origin = paste(year - 1, "-12-31", sep = '')))
+}
+
+# Function to show available products. This function allows you to determine
+# which MODIS products are available for download.
+.modisProducts <- function(product){
+
+  # Retrieve available products from cmr
+  prods <- read.csv("https://cmr.earthdata.nasa.gov/search/humanizers/report")
+
+  # Remove undesired columns
+  prods$original_value <- NULL
+  prods$humanized_value <- NULL
+
+  # Grep desired product
+  if (!missing(product)){
+
+    # If multiple products, paste them together into a single grep call
+    if (length(product) > 1){
+      product <- paste0(product, collapse = "|")
+    }
+
+    # Subset
+    prods <- prods[grep(product, prods$short_name), ]
+  }
+
+  # Coerce everything to character
+  prods <- mutate_all(prods, as.character)
+
+  # Return unique entries
+  return(unique(prods))
+}
+
+# Function to retrieve available files from a modis product. This function
+# allows you to find and select files that you want to download.
+.modisFiles <-  function(
+    product     = "MCD43A4"
+  , version     = "006"
+  , start_date  = NULL
+  , end_date    = NULL
+  , aoi         = NULL
+  , limit       = 100){
+
+  # Make sure the product exists
+  dd <- .modisProducts(product)
+  dd <- dd[dd$short_name == product & dd$version == version, ]
+
+  # In case there is no such data, interrupt. In case there are multiple sources
+  # of data, continue and use first
+  if (nrow(dd) < 1){
+    stop("Requested product not available")
+  } else if (nrow(dd) > 1){
+    warning("Multiple sources available, using first")
+    print(dd)
+    dd <- dd[1, ]
+  }
+
+  # Specify date suffix
+  datesuffix <- "T00:00:00Z"
+
+  # Convert dates to proper dates
+  start_date  <- as.Date(start_date)
+  end_date    <- as.Date(end_date)
+  temporal    <- paste0(start_date, datesuffix, ",", end_date, datesuffix)
+
+  # Put URLs together
+  cmr_host <- "https://cmr.earthdata.nasa.gov"
+  url <- file.path(cmr_host, "search/granules")
+
+  # Retrieve extent
+  ext <- .getExtent(aoi)
+
+  # Put query parameters together
+  params <- list(
+      short_name    = product
+    ,	temporal      = temporal
+    , downloadable  = "true"
+    , bounding_box  = ext
+  )
+
+  # Run query
+  results <- .getSearchResults(url = url, limit = limit, args = params)
+
+  # Identify modis dates
+  results <- cbind(results, modis_date(results$`Producer Granule ID`))
+
+  # Return the results
+  return(results)
+}
+
+# Function to convert the downloaded hdf files to proper .tif rasters
+.modisExtract <- function(
+    filepath  = NULL
+  , outdir    = dirname(filepath)
+  , removeHDF = F
+  , overwrite = F){
+
+  # Extract the date from the modis file
+  date <- as.vector(as.matrix(modis_date(filepath)))
+
+  # Get all bands
+  bands <- get_subdatasets(filepath)
+
+  # Select the bands we want to keep
+  bands <- bands[grep("Nadir.*Band[1-7]", bands)]
+
+  # Create new filenames under which the bands will be stored
+  names <- paste0(dirname(filepath), "/", basename(bands), ".tif")
+
+  # Create output filename of the merged file
+  filename <- paste0(outdir, "/", basename(filepath), ".tif")
+
+  # Make sure the file does not already exist
+  if (file.exists(filename) & !overwrite){
+    warning(paste0("file ", filename, " already exists"))
+    return(filename)
+  }
+
+  # Convert the selected bands to tifs using the new names
+  for (j in 1:length(bands)){
+    gdal_translate(bands[j], dst_dataset = names[j])
+  }
+
+  # Stack them
+  r <- rast(names)
+
+  # Assign date as band names
+  names(r) <- paste0("Band_", 1:7)
+
+  # Store the stacked file
+  writeRaster(
+      r
+    , filename  = filename
+    , format    = "GTiff"
+    , overwrite = TRUE
+    , options   = c("INTERLEAVE = BAND", "COMPRESS = LZW")
+  )
+
+  # Remove the seperate bands
+  file.remove(names)
+
+  # In case the original HDF should be removed, do so
+  if (removeHDF){
+    file.remove(filepath)
+  }
+
+  # Return the location of the file
+  return(filename)
+}
+
+# Function that allows you to stitch modis tiles together
+.modisStitch <- function(
+    filepaths = NULL
+  , outdir    = getwd()
+  , outname   = NULL
+  , overwrite = F){
+
+  # Create output name
+  filename <- paste0(outdir, "/", outname)
+  if (file.exists(filename) & !overwrite){
+    warning(paste0("file ", filename, " already exists"))
+    return(filename)
+  }
+
+  # Create a virtual raster
+  name <- tempfile(fileext = ".vrt")
+  gdalbuildvrt(gdalfile = filepaths, output.vrt = name)
+
+  # Coerce virtual raster to a true raster
+  gdal_translate(
+      src_dataset   = name
+    , dst_dataset   = filename
+    , output_Raster = TRUE
+    , options       = c("BIGTIFFS=YES")
+  )
+
+  # Return the filepath to the stitched file
+  return(filename)
 }

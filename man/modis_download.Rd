@@ -5,18 +5,17 @@
 \title{Download MODIS products}
 \usage{
 modis_download(
-  dataframe = NULL,
-  path = getwd(),
+  dates = NULL,
+  outdir = getwd(),
+  tmpdir = tempdir(),
   username = NULL,
   password = NULL,
   overwrite = F
 )
 }
 \arguments{
-\item{dataframe}{\code{data.frame}. Selection of the files that should be
-downloaded (see \code{modis_files()})}
-
-\item{path}{character. Path were the downloaded files should be stored to}
+\item{outdir}{character. Directory were the processed files should be stored
+to. This is the raw data that will be used for floodmapping}
 
 \item{username}{character. Username of your EarthData account}
 
@@ -24,11 +23,19 @@ downloaded (see \code{modis_files()})}
 
 \item{overwrite}{logical. If such a file already exists in the path, should
 it be overwritten?}
+
+\item{date}{character vector of dates. Dates for which a modis image should be
+downloaded. Needs to be of format "YYYY-mm-dd".}
+
+\item{tempdir}{character. Directory were intermediary files should be stored.
+By default this is determined by \code{tempdir()}. However, you can change
+this to another folder.}
 }
 \value{
 Character vector of filename pointing to the downloaded files
 }
 \description{
-This function uses the data from the \code{modis_files()} function to
-download the desired MODIS files.
+This function wraps multiple functions that allow to identify, filter,
+download, and process modis files that can then be classified into floodmaps
+using
 }

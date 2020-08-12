@@ -4,23 +4,30 @@
 \alias{modis_classify}
 \title{Classify MODIS Image}
 \usage{
-modis_classify(x, water, dryland)
+modis_classify(
+  x = NULL,
+  watermask = NULL,
+  drymask = NULL,
+  ignore.bimodality = F
+)
 }
 \arguments{
 \item{x}{\code{RasterLayer} of MODIS band 7}
 
-\item{water}{\code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
-representing permanent waters}
+\item{watermask}{\code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
+representing the water-polygon that is used to extract reflectances of water
+on MODIS band 7.}
 
-\item{dryland}{\code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
-representing permanent dryland}
+\item{drymask}{\code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
+representing the dryland-polygon that is used to extract reflectances of
+water on MODIS band 7.}
+
+\item{ignore.bimodality}{logical. Should the bimodality check be ignored?}
 }
 \value{
 \code{RasterLayer} of classified MODIS image
 }
 \description{
-Function to classify a MODIS image into the binary categories water (value =
-\enumerate{
-\item and dryland (value = 0)
-}
+Function to classify a MODIS image into the binary categories water and
+dryland. Water = 1, Dryland = 0.
 }
