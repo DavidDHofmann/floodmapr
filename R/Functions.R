@@ -167,7 +167,14 @@ modis_download <- function(
 #' show(modis)
 #'}
 modis_load <- function(filepath = NULL){
-  raster(filepath, band = 7)
+
+  # Make sure only one file is given
+  if (length(filepath) > 1){
+    stop("Can't load multiple files at once. Provide a single file only")
+  }
+
+  # Load it
+  return(raster(filepath, band = 7))
 }
 
 #' Classify MODIS Image
@@ -326,7 +333,7 @@ modis_bimodal <- function(
   if (!is.null(drymask)){dryland <- drymask}
 
   # Check if the image is bimodal
-  perc <- modis_percentiles(x, water = water, dryland = dryland)
+  perc <- modis_percentiles(x, watermask = water, drymask = dryland)
   bimodal <- perc$WaterPercentiles[2] - 10 / 255 < perc$DrylandPercentiles[1]
 
   # Return answer
@@ -519,7 +526,7 @@ modis_specs <- function(
 modis_percentiles <- function(
     x         = NULL
   , watermask = NULL
-  , drymaks   = NULL){
+  , drymask   = NULL){
 
   # Retrieve water, nowater and dryland masks
   water   <- masks_polygons[masks_polygons$Description == "water", ]

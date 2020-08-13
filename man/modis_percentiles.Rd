@@ -4,7 +4,7 @@
 \alias{modis_percentiles}
 \title{Calculate Reflectance Percentiles}
 \usage{
-modis_percentiles(x = NULL, watermask = NULL, drymaks = NULL)
+modis_percentiles(x = NULL, watermask = NULL, drymask = NULL)
 }
 \arguments{
 \item{x}{\code{RasterLayer} of MODIS band 7}
