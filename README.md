@@ -64,7 +64,8 @@ later process, bands 1-7 are stored for completeness.
 using `modis_load()`. This will only load band 7 into your current R session.
 
 3. `modis_classify()` Classify the satellite image into a binary map of water
-(valued 1) and dryland (valued 0).
+(valued 1) and dryland (valued 0). You can then use the resulting raster and
+e.g. plot it (`plot()`).
 
 In addition to the above described main functions there are some additional
 helper functions that allow you to do some preliminary analysis on MODIS MCD43A4

@@ -19,4 +19,17 @@ Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.0
-Depends: R (>= 2.10), raster
+Depends:
+    R (>= 2.10)
+  , raster
+Imports:
+    terra
+  , velox
+  , ggplot2
+  , sp
+  , dplyr
+  , magrittr
+  , tidyr
+  , lubridate
+  , rgeos
+  , gdalUtils
