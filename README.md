@@ -86,3 +86,33 @@ Finally, there is a function called `modis_watermap()`. This function can be
 used to create a dynamic watermask that can be fed into `modis_classify()`. This
 dynamic mask uses already classified watermaps in order to determine areas that
 were frequently flooded in the past.
+
+Here is a complete example of the above outlined workflow
+
+```
+library(watermapr)
+
+# Download modis data
+downloaded <- modis_download(
+    dates     = c("2020-01-01", "2020-01-02")
+  , outdir    = getwd()
+  , tmpdir    = getwd()
+  , username  = "username"
+  , password  = "password"
+  , overwrite = F
+)
+
+# Load data
+loaded <- modis_load(downloaded[1])
+
+# Do some checks
+modis_specs(loaded)
+modis_bimodal(loaded)
+modis_percentiles(loaded)
+
+# Classify data
+classified <- modis_classify(loaded, ignore.bimodality = T)
+
+# Visualize classified image
+plot(classified)
+```
