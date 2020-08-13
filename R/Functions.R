@@ -16,9 +16,9 @@ NULL
 #' Download MODIS products
 #'
 #' This function is used to download and process modis files that can then be
-#' classified into floodmaps using \code{modis_classify}. Important: MODIS bands
-#' 1-7 will be downloaded, yet only band 7 should be used in
-#' \code{modis_classify}. Note that the filenames simply correspond to the
+#' classified into floodmaps using \code{modis_classify()}. Important: MODIS
+#' bands 1-7 will be downloaded, yet only band 7 should be used in
+#' \code{modis_classify()}. Note that the filenames simply correspond to the
 #' aqcuisition date of the MODIS satellite imagery.
 #' @export
 #' @param date character vector of dates. Dates for which a modis image should be
@@ -127,6 +127,18 @@ modis_download <- function(
   return(final)
 }
 
+#' Load Downloaded MODIS Data
+#'
+#' Function to load a file that was downloaded using \code{modis_download()}.
+#' This function simply wraps the command \code{raster(filepath, band = 7)}.
+#' @export
+#' @param filepath character. Filepath pointing to the downloaded modis file
+#' @return \code{RasterLayer} containing only band 7 of the downloaded modis
+#' satellite imagery
+modis_load <- function(filepath = NULL){
+  raster(filepath, band = 7)
+}
+
 #' Classify MODIS Image
 #'
 #' Function to classify a MODIS image into the binary categories water and
@@ -158,8 +170,11 @@ modis_classify <- function(
 
   # Check if the image is bimodal
   if (!ignore.bimodality){
-    perc <- modis_percentiles(x, water = water, dryland = dryland)
-    bimodal <- perc$WaterPercentiles[2] - 10 / 255 < perc$DrylandPercentiles[1]
+    bimodal <- modis_bimodal(
+        x         = x
+      , watermask = water
+      , drymask   = dryland
+    )
 
     # If the image is not bimodal, we can return a message and skip the rest
     if (!bimodal){
@@ -202,6 +217,41 @@ modis_classify <- function(
 ################################################################################
 #### Level 2 Functions
 ################################################################################
+#' Check for Bimodality in MODIS Band
+#'
+#' Function to check for bimodality in MODIS band 7. For details check Wolksi et
+#' al. 2017.
+#' @export
+#' @param x \code{RasterLayer} of MODIS band 7
+#' @param watermask \code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
+#' representing the water-polygon that is used to extract reflectances of water
+#' on MODIS band 7.
+#' @param drymask \code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
+#' representing the dryland-polygon that is used to extract reflectances of
+#' water on MODIS band 7.
+#' @return logical indicating if the image is bimodal (TRUE) or not bimodal
+#' (FALSE)
+modis_bimodal <- function(
+    x                 = NULL
+  , watermask         = NULL
+  , drymask           = NULL){
+
+  # Retrieve water, nowater and dryland masks
+  water   <- masks_polygons[masks_polygons$Description == "water", ]
+  dryland <- masks_polygons[masks_polygons$Description == "dryland", ]
+
+  # In case a watermask or drymask is provided, use them
+  if (!is.null(watermask)){water <- watermask}
+  if (!is.null(drymask)){dryland <- drymask}
+
+  # Check if the image is bimodal
+  perc <- modis_percentiles(x, water = water, dryland = dryland)
+  bimodal <- perc$WaterPercentiles[2] - 10 / 255 < perc$DrylandPercentiles[1]
+
+  # Return answer
+  return(bimodal)
+}
+
 #' Retrieve Date from MODIS Filenames
 #'
 #' Function to retrieve the date from a MODIS file. Note that this function only

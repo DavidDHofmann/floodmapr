@@ -1,18 +1,22 @@
 Package: watermapr
-Title: What the Package Does (One Line, Title Case)
+Type: package
+Date: 2020-08-12
+Title: Download and Classify Watermaps for the Okavango Delta
 Version: 0.0.0.9000
-Authors@R: 
-    person(given = "First",
-           family = "Last",
-           role = c("aut", "cre"),
-           email = "first.last@example.com",
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to
-    pick a license
+Authors@R:
+    person(
+        given   = "David"
+      , family  = "Hofmann"
+      , role    = c("aut", "cre")
+      , email   = "david.hofmann@uzh.ch"
+      , comment = c(ORCID = "YOUR-ORCID-ID")
+    )
+Description: The watermapr package allows you to download MODIS MCD43A4
+  satellite imagery and to automatically classify a watermap (also called
+  floodmap) for the extent of the Okavango Delta.
+License: GPL-3
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.0
-Depends: 
-    R (>= 2.10)
+Depends: R (>= 2.10), raster
