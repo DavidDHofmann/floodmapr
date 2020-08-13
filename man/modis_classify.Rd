@@ -39,3 +39,25 @@ al., 2017 and requires that reflectance values of water- and dryland are
 sufficiently distinct. The final map binarily depicts water = 1 and dryland =
 0.
 }
+\examples{
+\dontrun{
+# Download files for two dates
+files <- modis_download(
+    dates     = c("2020-01-01", "2020-01-01")
+  , outdir    = getwd()
+  , tmpdir    = tmpdir()
+  , username  = "username"
+  , password  = "password"
+  , overwrite = F
+)
+
+# Load one of them
+modis <- modis_load(files[1])
+
+# Classify it
+classified <- modis_classify(modis)
+
+# Visualize
+plot(classified)
+}
+}

@@ -41,3 +41,19 @@ bands 1-7 will be downloaded, yet only band 7 should be used in
 \code{modis_classify()}. Note that the filenames simply correspond to the
 aqcuisition date of the MODIS satellite imagery.
 }
+\examples{
+\dontrun{
+# Download files for two dates
+files <- modis_download(
+    dates     = c("2020-01-01", "2020-01-01")
+  , outdir    = getwd()
+  , tmpdir    = tmpdir()
+  , username  = "username"
+  , password  = "password"
+  , overwrite = F
+)
+
+# Check them
+files
+}
+}

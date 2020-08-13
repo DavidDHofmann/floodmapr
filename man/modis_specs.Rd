@@ -17,6 +17,23 @@ representing permanent dryland}
 }
 \value{
 Plot of spatial reflectance values below the two polygons
+\dontrun{
+# Download file
+file <- modis_download(
+    dates     = "2020-01-01"
+  , outdir    = getwd()
+  , tmpdir    = tmpdir()
+  , username  = "username"
+  , password  = "password"
+  , overwrite = F
+)
+
+# Load it
+modis <- modis_load(file)
+
+# Check spectral reflectances
+modis_specs(modis)
+}
 }
 \description{
 Function to compare spectral signatures of MODIS maps below water and dryland

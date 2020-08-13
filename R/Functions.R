@@ -39,7 +39,7 @@ NULL
 #' files <- modis_download(
 #'     dates     = c("2020-01-01", "2020-01-01")
 #'   , outdir    = getwd()
-#'   , tmpdir    = tmpdir()
+#'   , tmpdir    = tempdir()
 #'   , username  = "username"
 #'   , password  = "password"
 #'   , overwrite = F
@@ -156,7 +156,7 @@ modis_download <- function(
 #' files <- modis_download(
 #'     dates     = c("2020-01-01", "2020-01-01")
 #'   , outdir    = getwd()
-#'   , tmpdir    = tmpdir()
+#'   , tmpdir    = tempdir()
 #'   , username  = "username"
 #'   , password  = "password"
 #'   , overwrite = F
@@ -182,7 +182,7 @@ modis_load <- function(filepath = NULL){
 #' @param watermask \code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
 #' representing the water-polygon that is used to extract reflectances of water
 #' on MODIS band 7. By default the masks from Wolski et al., 2017 are used. See
-#' also \code{modis_watermask()}.
+#' also \code{modis_watermask()} in case you want to create dynamic watermasks.
 #' @param drymask \code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
 #' representing the dryland-polygon that is used to extract reflectances of
 #' water on MODIS band 7. By default the masks from Wolski et al., 2017 are
@@ -198,7 +198,7 @@ modis_load <- function(filepath = NULL){
 #' files <- modis_download(
 #'     dates     = c("2020-01-01", "2020-01-01")
 #'   , outdir    = getwd()
-#'   , tmpdir    = tmpdir()
+#'   , tmpdir    = tempdir()
 #'   , username  = "username"
 #'   , password  = "password"
 #'   , overwrite = F
@@ -208,7 +208,7 @@ modis_load <- function(filepath = NULL){
 #' modis <- modis_load(files[1])
 #'
 #' # Classify it
-#' classified <- modis_classify(modis)
+#' classified <- modis_classify(modis, ignore.bimodality = T)
 #'
 #' # Visualize
 #' plot(classified)
@@ -294,12 +294,13 @@ modis_classify <- function(
 #' used.
 #' @return logical indicating if the image is bimodal (TRUE) or not bimodal
 #' (FALSE)
+#' @examples
 #' \dontrun{
 #' # Download file
 #' file <- modis_download(
 #'     dates     = "2020-01-01"
 #'   , outdir    = getwd()
-#'   , tmpdir    = tmpdir()
+#'   , tmpdir    = tempdir()
 #'   , username  = "username"
 #'   , password  = "password"
 #'   , overwrite = F
@@ -419,17 +420,22 @@ modis_watermask <- function(
 #' polygons
 #' @export
 #' @param x \code{RasterLayer} of MODIS band 7
-#' @param water \code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
-#' representing permanent waters
-#' @param dryland \code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
-#' representing permanent dryland
+#' @param watermask \code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
+#' representing the water-polygon that is used to extract reflectances of water
+#' on MODIS band 7. By default the masks from Wolski et al., 2017 are used. See
+#' also \code{modis_watermask()} in case you want to create dynamic watermasks.
+#' @param drymask \code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
+#' representing the dryland-polygon that is used to extract reflectances of
+#' water on MODIS band 7. By default the masks from Wolski et al., 2017 are
+#' used.
 #' @return Plot of spatial reflectance values below the two polygons
 #' \dontrun{
+#' @examples
 #' # Download file
 #' file <- modis_download(
 #'     dates     = "2020-01-01"
 #'   , outdir    = getwd()
-#'   , tmpdir    = tmpdir()
+#'   , tmpdir    = tempdir()
 #'   , username  = "username"
 #'   , password  = "password"
 #'   , overwrite = F
@@ -441,34 +447,41 @@ modis_watermask <- function(
 #' # Check spectral reflectances
 #' modis_specs(modis)
 #'}
-modis_specs <- function(x = NULL, water = NULL, dryland = NULL){
+modis_specs <- function(
+    x         = NULL
+  , watermask = NULL
+  , drymask   = NULL){
 
-    # Retrieve water and dryland maps
-    water <- masks_polygons[masks_polygons$Description == "water", ]
-    dryland <- masks_polygons[masks_polygons$Description == "dryland", ]
+  # Retrieve water, nowater and dryland masks
+  water   <- masks_polygons[masks_polygons$Description == "water", ]
+  dryland <- masks_polygons[masks_polygons$Description == "dryland", ]
 
-    # Extract the spectral values of band 7 below the dryland and water polygons
-    # To speed up the extraction we coerce the modis band to a velox raster
-    band7 <- velox(x)
+  # In case a watermask or drymask is provided, use them
+  if (!is.null(watermask)){water <- watermask}
+  if (!is.null(drymask)){dryland <- drymask}
 
-    # Extract the values and coerce the output to a dataframe
-    wat <- band7$extract(water) %>%
-      do.call(rbind, .) %>%
-      as.data.frame()
-    dry <- band7$extract(dryland) %>%
-      do.call(rbind, .) %>%
-      as.data.frame()
+  # Extract the spectral values of band 7 below the dryland and water polygons
+  # To speed up the extraction we coerce the modis band to a velox raster
+  band7 <- velox(x)
 
-    # Prepare a column that indicates the land cover class
-    wat$Class <- "Water"
-    dry$Class <- "Dryland"
+  # Extract the values and coerce the output to a dataframe
+  wat <- band7$extract(water) %>%
+    do.call(rbind, .) %>%
+    as.data.frame()
+  dry <- band7$extract(dryland) %>%
+    do.call(rbind, .) %>%
+    as.data.frame()
 
-    # Bind the extracted values together
-    specs <- rbind(wat, dry)
-    specs <- na.omit(specs)
+  # Prepare a column that indicates the land cover class
+  wat$Class <- "Water"
+  dry$Class <- "Dryland"
 
-    # Plot the two densities for the spectral signatures of each value
-    ggplot(specs, aes(V1, fill = Class)) + geom_density(alpha = 0.2)
+  # Bind the extracted values together
+  specs <- rbind(wat, dry)
+  specs <- na.omit(specs)
+
+  # Plot the two densities for the spectral signatures of each value
+  ggplot(specs, aes(V1, fill = Class)) + geom_density(alpha = 0.2)
 }
 
 #' Calculate Reflectance Percentiles
@@ -476,17 +489,22 @@ modis_specs <- function(x = NULL, water = NULL, dryland = NULL){
 #' Function to calculate percentiles of water and dryland reflectance values
 #' @export
 #' @param x \code{RasterLayer} of MODIS band 7
-#' @param water \code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
-#' representing permanent waters
-#' @param dryland \code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
-#' representing permanent dryland
+#' @param watermask \code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
+#' representing the water-polygon that is used to extract reflectances of water
+#' on MODIS band 7. By default the masks from Wolski et al., 2017 are used. See
+#' also \code{modis_watermask()} in case you want to create dynamic watermasks.
+#' @param drymask \code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
+#' representing the dryland-polygon that is used to extract reflectances of
+#' water on MODIS band 7. By default the masks from Wolski et al., 2017 are
+#' used.
 #' @return dataframe of percentiles
+#' @examples
 #' \dontrun{
 #' # Download file
 #' file <- modis_download(
 #'     dates     = "2020-01-01"
 #'   , outdir    = getwd()
-#'   , tmpdir    = tmpdir()
+#'   , tmpdir    = tempdir()
 #'   , username  = "username"
 #'   , password  = "password"
 #'   , overwrite = F
@@ -498,11 +516,18 @@ modis_specs <- function(x = NULL, water = NULL, dryland = NULL){
 #' # Check percentiles
 #' modis_percentiles(modis)
 #'}
-modis_percentiles <- function(x, water, dryland){
+modis_percentiles <- function(
+    x         = NULL
+  , watermask = NULL
+  , drymaks   = NULL){
 
-  # Retrieve water and dryland maps
-  water <- masks_polygons[masks_polygons$Description == "water", ]
+  # Retrieve water, nowater and dryland masks
+  water   <- masks_polygons[masks_polygons$Description == "water", ]
   dryland <- masks_polygons[masks_polygons$Description == "dryland", ]
+
+  # In case a watermask or drymask is provided, use them
+  if (!is.null(watermask)){water <- watermask}
+  if (!is.null(drymask)){dryland <- drymask}
 
   # Extract the spectral values of band 7 below the dryland and water polygons.
   # To speed up the extraction we coerce the modis band to a velox raster

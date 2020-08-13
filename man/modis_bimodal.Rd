@@ -22,6 +22,23 @@ used.}
 \value{
 logical indicating if the image is bimodal (TRUE) or not bimodal
 (FALSE)
+\dontrun{
+# Download file
+file <- modis_download(
+    dates     = "2020-01-01"
+  , outdir    = getwd()
+  , tmpdir    = tmpdir()
+  , username  = "username"
+  , password  = "password"
+  , overwrite = F
+)
+
+# Load it
+modis <- modis_load(file)
+
+# Check for bimodality
+modis_bimodal(modis)
+}
 }
 \description{
 Function to check for bimodality in MODIS MCD43A4 band 7. Bimodality is said

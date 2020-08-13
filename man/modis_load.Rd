@@ -17,3 +17,20 @@ Function to load downloaded MODIS MCD43A4 band 7 (see
 \code{modis_download()}). This function simply wraps the command
 \code{raster(filepath, band = 7)}.
 }
+\examples{
+\dontrun{
+# Download files for two dates
+files <- modis_download(
+    dates     = c("2020-01-01", "2020-01-01")
+  , outdir    = getwd()
+  , tmpdir    = tmpdir()
+  , username  = "username"
+  , password  = "password"
+  , overwrite = F
+)
+
+# Load one of them and show it
+modis <- modis_load(files[1])
+show(modis)
+}
+}

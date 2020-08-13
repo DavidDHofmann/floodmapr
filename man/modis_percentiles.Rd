@@ -17,6 +17,23 @@ representing permanent dryland}
 }
 \value{
 dataframe of percentiles
+\dontrun{
+# Download file
+file <- modis_download(
+    dates     = "2020-01-01"
+  , outdir    = getwd()
+  , tmpdir    = tmpdir()
+  , username  = "username"
+  , password  = "password"
+  , overwrite = F
+)
+
+# Load it
+modis <- modis_load(file)
+
+# Check percentiles
+modis_percentiles(modis)
+}
 }
 \description{
 Function to calculate percentiles of water and dryland reflectance values
