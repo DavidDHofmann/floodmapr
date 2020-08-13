@@ -22,7 +22,7 @@ install_github("DavidDHofmann/watermapr")
 ```
 
 Note that the `watermapr` package also depends on the r-package `velox`, which
-is not available from CRAN anymore. To install `velox`, there you have three options:
+is not available from CRAN anymore. To install `velox`, you have three options:
 
 #### Option 1
 You can directly install velox from the CRAN archive using:
@@ -54,10 +54,10 @@ The `watermapr` package follows a three step process using the functions,
 `modis_download()`, `modis_load()`, and `modis_classify()`.
 
 1. `modis_download()` Download MCD43A4 satellite imagery for desired dates for
-the extent of the Okavango delta. The function then automatically downloads,
+the extent of the Okavango Delta. The function automatically downloads,
 extracts, stitches and reprojects (EPSG 4326) corresponding modis tiles and
 stores them into a multiband raster. The output files are named according to the
-input date (e.g. "2020-01-01.tif"). Note: while only band 7 will be used in the
+input date (e.g. *2020-01-01.tif*). Note: while only band 7 will be used in the
 later process, bands 1-7 are stored for completeness.
 
 2. `modis_load()` Once you have downloaded the satellite imagery, load it into R

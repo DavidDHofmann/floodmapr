@@ -21,13 +21,13 @@ NULL
 #' \code{modis_classify()}. Note that the filenames simply correspond to the
 #' aqcuisition date of the MODIS satellite imagery.
 #' @export
-#' @param date character vector of dates. Dates for which a modis image should be
-#' downloaded. Needs to be of format "YYYY-mm-dd".
-#' @param outdir character. Directory were the processed files should be stored
-#' to. This is the raw data that will be used for floodmapping
-#' @param tempdir character. Directory were intermediary files should be stored.
-#' By default this is determined by \code{tempdir()}. However, you can change
-#' this to another folder.
+#' @param dates character vector of dates. Dates for which a modis image should
+#' be downloaded. Needs to be of format "YYYY-mm-dd".
+#' @param outdir character. Directory were the downloaded and processed files
+#' should be stored to. This data will be used in \code{modis_classify()}
+#' @param tempdir character. Directory were intermediary files should be stored
+#' to (e.g. hdf files). By default these are stored to \code{tempdir()}.
+#' However, you can change this to any other folder.
 #' @param username character. Username of your EarthData account
 #' @param password character. Password of your EarthData account
 #' @param overwrite logical. If such a file already exists in the path, should
@@ -129,30 +129,38 @@ modis_download <- function(
 
 #' Load Downloaded MODIS Data
 #'
-#' Function to load a file that was downloaded using \code{modis_download()}.
-#' This function simply wraps the command \code{raster(filepath, band = 7)}.
+#' Function to load downloaded MODIS MCD43A4 band 7 (see
+#' \code{modis_download()}). This function simply wraps the command
+#' \code{raster(filepath, band = 7)}.
 #' @export
 #' @param filepath character. Filepath pointing to the downloaded modis file
-#' @return \code{RasterLayer} containing only band 7 of the downloaded modis
-#' satellite imagery
+#' @return \code{RasterLayer} containing only MODIS MCD43A4 band 7
 modis_load <- function(filepath = NULL){
   raster(filepath, band = 7)
 }
 
 #' Classify MODIS Image
 #'
-#' Function to classify a MODIS image into the binary categories water and
-#' dryland. Water = 1, Dryland = 0.
+#' Function to classify MODIS MCD43A4 band 7 into the binary categories water
+#' and dryland. Classification is based on the algorithm described in Wolski et
+#' al., 2017 and requires that reflectance values of water- and dryland are
+#' sufficiently distinct. The final map binarily depicts water = 1 and dryland =
+#' 0.
 #' @export
 #' @param x \code{RasterLayer} of MODIS band 7
 #' @param watermask \code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
 #' representing the water-polygon that is used to extract reflectances of water
-#' on MODIS band 7.
+#' on MODIS band 7. By default the masks from Wolski et al., 2017 are used. See
+#' also \code{modis_watermask()}.
 #' @param drymask \code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
 #' representing the dryland-polygon that is used to extract reflectances of
-#' water on MODIS band 7.
-#' @param ignore.bimodality logical. Should the bimodality check be ignored?
-#' @return \code{RasterLayer} of classified MODIS image
+#' water on MODIS band 7. By default the masks from Wolski et al., 2017 are
+#' used.
+#' @param ignore.bimodality logical. Should issues with bimodality be ignored,
+#' i.e. the bimodality check be skipped? This can lead to biased
+#' classifications but may help in detecting issues.
+#' @return \code{RasterLayer} of classified MODIS image. water is valued 1,
+#' dryland valued 0.
 modis_classify <- function(
     x                 = NULL
   , watermask         = NULL
@@ -217,18 +225,21 @@ modis_classify <- function(
 ################################################################################
 #### Level 2 Functions
 ################################################################################
-#' Check for Bimodality in MODIS Band
+#' Check for Bimodality in MODIS Data
 #'
-#' Function to check for bimodality in MODIS band 7. For details check Wolksi et
-#' al. 2017.
+#' Function to check for bimodality in MODIS MCD43A4 band 7. Bimodality is said
+#' to be achieved if peaks of water- and dryland reflectances are sufficiently
+#' distinct. For details check Wolksi et al. 2017.
 #' @export
 #' @param x \code{RasterLayer} of MODIS band 7
 #' @param watermask \code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
 #' representing the water-polygon that is used to extract reflectances of water
-#' on MODIS band 7.
+#' on MODIS band 7. By default the masks from Wolski et al., 2017 are used. See
+#' also \code{modis_watermask()}.
 #' @param drymask \code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
 #' representing the dryland-polygon that is used to extract reflectances of
-#' water on MODIS band 7.
+#' water on MODIS band 7. By default the masks from Wolski et al., 2017 are
+#' used.
 #' @return logical indicating if the image is bimodal (TRUE) or not bimodal
 #' (FALSE)
 modis_bimodal <- function(
@@ -254,13 +265,13 @@ modis_bimodal <- function(
 
 #' Retrieve Date from MODIS Filenames
 #'
-#' Function to retrieve the date from a MODIS file. Note that this function only
-#' works with the original MODIS filenames
+#' Function to retrieve the date from a MODIS hdf file. Note that this function
+#' only works with the original MODIS hdf files.
 #' @export
 #' @param filename character. Filename(s) of the files for which a date should
 #' be extracted
 #' @return character. Dates as derived from the MODIS filename
-modis_date <- function(filename){
+modis_date <- function(filename = NULL){
   ff <- basename(filename)
   dot <- sapply(strsplit(ff, "\\."), '[', 2)
   dates <- gsub("[aA-zZ]", "", dot)
@@ -269,18 +280,22 @@ modis_date <- function(filename){
   data.frame(date = dates, stringsAsFactors = FALSE)
 }
 
-#' Create Dynamic Watermasks
+#' Create Dynamic Watermask
 #'
-#' Function to createa dynamic watermask based on previous floodmaps.
+#' Function to create a dynamic watermask for a point in time based on previous
+#' watermaps. The function uses floodmaps from previous dates to determine areas
+#' that were covered by water in at least x% of the time. This can help to deal
+#' with issues of non-bimodality.
 #' @export
 #' @param date date. Date for which a watermask should be calculated
-#' @param floodmaps character. Filenames of all floodmaps that already exist
-#' @param filedates vector of dates. Dates which the above floodmaps represent
+#' @param floodmaps character vector. Filenames of all floodmaps that already
+#' exist
+#' @param filedates dates vector. Dates which the above floodmaps represent
 #' @param years numeric. Number of years that should be considered to create a
 #' watermask
-#' @param Threshold numeric between 0 and 1. How often (relative frequency) a
-#' pixel needs to be inundated in the past x years to be considered in the
-#' watermask
+#' @param threshold numeric. Needs to be between 0 and 1. How often (relative
+#' frequency) a pixel needs to be inundated in the past x years to be considered
+#' in the watermask
 #' @return \code{SpatialPolygons} of the waterask
 modis_watermask <- function(
     date      = NULL
@@ -372,7 +387,7 @@ modis_specs <- function(x = NULL, water = NULL, dryland = NULL){
 
 #' Calculate Reflectance Percentiles
 #'
-#' Function to calculate percentiles in water and dryland reflectance values
+#' Function to calculate percentiles of water and dryland reflectance values
 #' @export
 #' @param x \code{RasterLayer} of MODIS band 7
 #' @param water \code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
