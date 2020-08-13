@@ -81,3 +81,8 @@ band 7.
   values is.
 
 - `modis_precentiles()` percentile values of water- and dryland-reflecatances.
+
+Finally, there is a function called `modis_watermap()`. This function can be
+used to create a dynamic watermask that can be fed into `modis_classify()`. This
+dynamic mask uses already classified watermaps in order to determine areas that
+were frequently flooded in the past.
