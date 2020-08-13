@@ -23,7 +23,7 @@ Function to load downloaded MODIS MCD43A4 band 7 (see
 files <- modis_download(
     dates     = c("2020-01-01", "2020-01-01")
   , outdir    = getwd()
-  , tmpdir    = tmpdir()
+  , tmpdir    = tempdir()
   , username  = "username"
   , password  = "password"
   , overwrite = F

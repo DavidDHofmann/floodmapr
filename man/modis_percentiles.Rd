@@ -4,25 +4,34 @@
 \alias{modis_percentiles}
 \title{Calculate Reflectance Percentiles}
 \usage{
-modis_percentiles(x, water, dryland)
+modis_percentiles(x = NULL, watermask = NULL, drymaks = NULL)
 }
 \arguments{
 \item{x}{\code{RasterLayer} of MODIS band 7}
 
-\item{water}{\code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
-representing permanent waters}
+\item{watermask}{\code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
+representing the water-polygon that is used to extract reflectances of water
+on MODIS band 7. By default the masks from Wolski et al., 2017 are used. See
+also \code{modis_watermask()} in case you want to create dynamic watermasks.}
 
-\item{dryland}{\code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
-representing permanent dryland}
+\item{drymask}{\code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
+representing the dryland-polygon that is used to extract reflectances of
+water on MODIS band 7. By default the masks from Wolski et al., 2017 are
+used.}
 }
 \value{
 dataframe of percentiles
+}
+\description{
+Function to calculate percentiles of water and dryland reflectance values
+}
+\examples{
 \dontrun{
 # Download file
 file <- modis_download(
     dates     = "2020-01-01"
   , outdir    = getwd()
-  , tmpdir    = tmpdir()
+  , tmpdir    = tempdir()
   , username  = "username"
   , password  = "password"
   , overwrite = F
@@ -34,7 +43,4 @@ modis <- modis_load(file)
 # Check percentiles
 modis_percentiles(modis)
 }
-}
-\description{
-Function to calculate percentiles of water and dryland reflectance values
 }

@@ -22,12 +22,19 @@ used.}
 \value{
 logical indicating if the image is bimodal (TRUE) or not bimodal
 (FALSE)
+}
+\description{
+Function to check for bimodality in MODIS MCD43A4 band 7. Bimodality is said
+to be achieved if peaks of water- and dryland reflectances are sufficiently
+distinct. For details check Wolksi et al. 2017.
+}
+\examples{
 \dontrun{
 # Download file
 file <- modis_download(
     dates     = "2020-01-01"
   , outdir    = getwd()
-  , tmpdir    = tmpdir()
+  , tmpdir    = tempdir()
   , username  = "username"
   , password  = "password"
   , overwrite = F
@@ -39,9 +46,4 @@ modis <- modis_load(file)
 # Check for bimodality
 modis_bimodal(modis)
 }
-}
-\description{
-Function to check for bimodality in MODIS MCD43A4 band 7. Bimodality is said
-to be achieved if peaks of water- and dryland reflectances are sufficiently
-distinct. For details check Wolksi et al. 2017.
 }

@@ -17,7 +17,7 @@ modis_classify(
 \item{watermask}{\code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
 representing the water-polygon that is used to extract reflectances of water
 on MODIS band 7. By default the masks from Wolski et al., 2017 are used. See
-also \code{modis_watermask()}.}
+also \code{modis_watermask()} in case you want to create dynamic watermasks.}
 
 \item{drymask}{\code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
 representing the dryland-polygon that is used to extract reflectances of
@@ -45,7 +45,7 @@ sufficiently distinct. The final map binarily depicts water = 1 and dryland =
 files <- modis_download(
     dates     = c("2020-01-01", "2020-01-01")
   , outdir    = getwd()
-  , tmpdir    = tmpdir()
+  , tmpdir    = tempdir()
   , username  = "username"
   , password  = "password"
   , overwrite = F
@@ -55,7 +55,7 @@ files <- modis_download(
 modis <- modis_load(files[1])
 
 # Classify it
-classified <- modis_classify(modis)
+classified <- modis_classify(modis, ignore.bimodality = T)
 
 # Visualize
 plot(classified)

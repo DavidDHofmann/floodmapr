@@ -429,8 +429,8 @@ modis_watermask <- function(
 #' water on MODIS band 7. By default the masks from Wolski et al., 2017 are
 #' used.
 #' @return Plot of spatial reflectance values below the two polygons
-#' \dontrun{
 #' @examples
+#' \dontrun{
 #' # Download file
 #' file <- modis_download(
 #'     dates     = "2020-01-01"

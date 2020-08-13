@@ -4,25 +4,35 @@
 \alias{modis_specs}
 \title{Compare Spectral Signatures of MODIS Maps}
 \usage{
-modis_specs(x = NULL, water = NULL, dryland = NULL)
+modis_specs(x = NULL, watermask = NULL, drymask = NULL)
 }
 \arguments{
 \item{x}{\code{RasterLayer} of MODIS band 7}
 
-\item{water}{\code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
-representing permanent waters}
+\item{watermask}{\code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
+representing the water-polygon that is used to extract reflectances of water
+on MODIS band 7. By default the masks from Wolski et al., 2017 are used. See
+also \code{modis_watermask()} in case you want to create dynamic watermasks.}
 
-\item{dryland}{\code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
-representing permanent dryland}
+\item{drymask}{\code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
+representing the dryland-polygon that is used to extract reflectances of
+water on MODIS band 7. By default the masks from Wolski et al., 2017 are
+used.}
 }
 \value{
 Plot of spatial reflectance values below the two polygons
+}
+\description{
+Function to compare spectral signatures of MODIS maps below water and dryland
+polygons
+}
+\examples{
 \dontrun{
 # Download file
 file <- modis_download(
     dates     = "2020-01-01"
   , outdir    = getwd()
-  , tmpdir    = tmpdir()
+  , tmpdir    = tempdir()
   , username  = "username"
   , password  = "password"
   , overwrite = F
@@ -34,8 +44,4 @@ modis <- modis_load(file)
 # Check spectral reflectances
 modis_specs(modis)
 }
-}
-\description{
-Function to compare spectral signatures of MODIS maps below water and dryland
-polygons
 }
