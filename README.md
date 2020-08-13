@@ -25,7 +25,7 @@ Note that the `watermapr` package also depends on the r-package `velox`, which
 is not available from CRAN anymore. To install `velox`, you have three options:
 
 #### Option 1
-You can directly install velox from the CRAN archive using:
+You can directly install `velox` from the CRAN archive using:
 
 ```
 library(devtools)
@@ -33,7 +33,7 @@ install_version("velox", version = "0.2.0", repos = "http://cran.r-project.org")
 ```
 
 #### Option 2
-Alternatively, you can install velox from github.
+Alternatively, you can install `velox` from github.
 
 ```
 library(devtools)
