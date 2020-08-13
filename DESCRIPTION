@@ -23,13 +23,13 @@ Depends:
     R (>= 2.10)
   , raster
 Imports:
-    terra
-  , velox
-  , ggplot2
-  , sp
   , dplyr
-  , magrittr
-  , tidyr
-  , lubridate
-  , rgeos
   , gdalUtils
+  , ggplot2
+  , lubridate
+  , magrittr
+  , rgeos
+  , sp
+  , terra
+  , tidyr
+  , velox
