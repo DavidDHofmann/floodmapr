@@ -33,6 +33,21 @@ NULL
 #' @param overwrite logical. If such a file already exists in the path, should
 #' it be overwritten?
 #' @return Character vector of filename pointing to the downloaded files
+#' @examples
+#' \dontrun{
+#' # Download files for two dates
+#' files <- modis_download(
+#'     dates     = c("2020-01-01", "2020-01-01")
+#'   , outdir    = getwd()
+#'   , tmpdir    = tmpdir()
+#'   , username  = "username"
+#'   , password  = "password"
+#'   , overwrite = F
+#' )
+#'
+#' # Check them
+#' files
+#'}
 modis_download <- function(
     dates     = NULL
   , outdir    = getwd()
@@ -135,6 +150,22 @@ modis_download <- function(
 #' @export
 #' @param filepath character. Filepath pointing to the downloaded modis file
 #' @return \code{RasterLayer} containing only MODIS MCD43A4 band 7
+#' @examples
+#' \dontrun{
+#' # Download files for two dates
+#' files <- modis_download(
+#'     dates     = c("2020-01-01", "2020-01-01")
+#'   , outdir    = getwd()
+#'   , tmpdir    = tmpdir()
+#'   , username  = "username"
+#'   , password  = "password"
+#'   , overwrite = F
+#' )
+#'
+#' # Load one of them and show it
+#' modis <- modis_load(files[1])
+#' show(modis)
+#'}
 modis_load <- function(filepath = NULL){
   raster(filepath, band = 7)
 }
@@ -160,7 +191,28 @@ modis_load <- function(filepath = NULL){
 #' i.e. the bimodality check be skipped? This can lead to biased
 #' classifications but may help in detecting issues.
 #' @return \code{RasterLayer} of classified MODIS image. water is valued 1,
-#' dryland valued 0.
+#' dryland valued 0. If there are clouds, they are masked as NA.
+#' @examples
+#' \dontrun{
+#' # Download files for two dates
+#' files <- modis_download(
+#'     dates     = c("2020-01-01", "2020-01-01")
+#'   , outdir    = getwd()
+#'   , tmpdir    = tmpdir()
+#'   , username  = "username"
+#'   , password  = "password"
+#'   , overwrite = F
+#' )
+#'
+#' # Load one of them
+#' modis <- modis_load(files[1])
+#'
+#' # Classify it
+#' classified <- modis_classify(modis)
+#'
+#' # Visualize
+#' plot(classified)
+#'}
 modis_classify <- function(
     x                 = NULL
   , watermask         = NULL
@@ -242,6 +294,23 @@ modis_classify <- function(
 #' used.
 #' @return logical indicating if the image is bimodal (TRUE) or not bimodal
 #' (FALSE)
+#' \dontrun{
+#' # Download file
+#' file <- modis_download(
+#'     dates     = "2020-01-01"
+#'   , outdir    = getwd()
+#'   , tmpdir    = tmpdir()
+#'   , username  = "username"
+#'   , password  = "password"
+#'   , overwrite = F
+#' )
+#'
+#' # Load it
+#' modis <- modis_load(file)
+#'
+#' # Check for bimodality
+#' modis_bimodal(modis)
+#'}
 modis_bimodal <- function(
     x                 = NULL
   , watermask         = NULL
@@ -355,6 +424,23 @@ modis_watermask <- function(
 #' @param dryland \code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
 #' representing permanent dryland
 #' @return Plot of spatial reflectance values below the two polygons
+#' \dontrun{
+#' # Download file
+#' file <- modis_download(
+#'     dates     = "2020-01-01"
+#'   , outdir    = getwd()
+#'   , tmpdir    = tmpdir()
+#'   , username  = "username"
+#'   , password  = "password"
+#'   , overwrite = F
+#' )
+#'
+#' # Load it
+#' modis <- modis_load(file)
+#'
+#' # Check spectral reflectances
+#' modis_specs(modis)
+#'}
 modis_specs <- function(x = NULL, water = NULL, dryland = NULL){
 
     # Retrieve water and dryland maps
@@ -395,6 +481,23 @@ modis_specs <- function(x = NULL, water = NULL, dryland = NULL){
 #' @param dryland \code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
 #' representing permanent dryland
 #' @return dataframe of percentiles
+#' \dontrun{
+#' # Download file
+#' file <- modis_download(
+#'     dates     = "2020-01-01"
+#'   , outdir    = getwd()
+#'   , tmpdir    = tmpdir()
+#'   , username  = "username"
+#'   , password  = "password"
+#'   , overwrite = F
+#' )
+#'
+#' # Load it
+#' modis <- modis_load(file)
+#'
+#' # Check percentiles
+#' modis_percentiles(modis)
+#'}
 modis_percentiles <- function(x, water, dryland){
 
   # Retrieve water and dryland maps

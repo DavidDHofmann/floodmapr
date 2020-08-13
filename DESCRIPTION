@@ -20,16 +20,15 @@ LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.0
 Depends:
-    R (>= 2.10)
-  , raster
-Imports:
-  , dplyr
-  , gdalUtils
-  , ggplot2
-  , lubridate
-  , magrittr
-  , rgeos
-  , sp
-  , terra
-  , tidyr
-  , velox
+    R (>= 2.10),
+    raster (>= 3.3.13)
+Imports: 
+    gdalUtils (>= 2.0.3.2),
+    ggplot2 (>= 3.3.2),
+    lubridate (>= 1.7.9),
+    magrittr (>= 1.5),
+    rgeos (>= 0.5.3),
+    sp (>= 1.4.2),
+    terra (>= 0.8.7),
+    tidyr (>= 1.1.1),
+    velox (>= 0.2.0)

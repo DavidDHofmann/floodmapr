@@ -4,7 +4,7 @@
 \alias{modis_date}
 \title{Retrieve Date from MODIS Filenames}
 \usage{
-modis_date(filename)
+modis_date(filename = NULL)
 }
 \arguments{
 \item{filename}{character. Filename(s) of the files for which a date should
@@ -14,6 +14,6 @@ be extracted}
 character. Dates as derived from the MODIS filename
 }
 \description{
-Function to retrieve the date from a MODIS file. Note that this function only
-works with the original MODIS filenames
+Function to retrieve the date from a MODIS hdf file. Note that this function
+only works with the original MODIS hdf files.
 }

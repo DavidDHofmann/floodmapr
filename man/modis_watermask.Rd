@@ -2,7 +2,7 @@
 % Please edit documentation in R/Functions.R
 \name{modis_watermask}
 \alias{modis_watermask}
-\title{Create Dynamic Watermasks}
+\title{Create Dynamic Watermask}
 \usage{
 modis_watermask(
   date = NULL,
@@ -15,20 +15,24 @@ modis_watermask(
 \arguments{
 \item{date}{date. Date for which a watermask should be calculated}
 
-\item{filedates}{vector of dates. Dates which the above floodmaps represent}
+\item{filedates}{dates vector. Dates which the above floodmaps represent}
 
 \item{years}{numeric. Number of years that should be considered to create a
 watermask}
 
-\item{floodmaps}{character. Filenames of all floodmaps that already exist}
+\item{threshold}{numeric. Needs to be between 0 and 1. How often (relative
+frequency) a pixel needs to be inundated in the past x years to be considered
+in the watermask}
 
-\item{Threshold}{numeric between 0 and 1. How often (relative frequency) a
-pixel needs to be inundated in the past x years to be considered in the
-watermask}
+\item{floodmaps}{character vector. Filenames of all floodmaps that already
+exist}
 }
 \value{
 \code{SpatialPolygons} of the waterask
 }
 \description{
-Function to createa dynamic watermask based on previous floodmaps.
+Function to create a dynamic watermask for a point in time based on previous
+watermaps. The function uses floodmaps from previous dates to determine areas
+that were covered by water in at least x\% of the time. This can help to deal
+with issues of non-bimodality.
 }

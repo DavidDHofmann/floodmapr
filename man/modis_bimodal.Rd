@@ -2,7 +2,7 @@
 % Please edit documentation in R/Functions.R
 \name{modis_bimodal}
 \alias{modis_bimodal}
-\title{Check for Bimodality in MODIS Band}
+\title{Check for Bimodality in MODIS Data}
 \usage{
 modis_bimodal(x = NULL, watermask = NULL, drymask = NULL)
 }
@@ -11,17 +11,20 @@ modis_bimodal(x = NULL, watermask = NULL, drymask = NULL)
 
 \item{watermask}{\code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
 representing the water-polygon that is used to extract reflectances of water
-on MODIS band 7.}
+on MODIS band 7. By default the masks from Wolski et al., 2017 are used. See
+also \code{modis_watermask()}.}
 
 \item{drymask}{\code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
 representing the dryland-polygon that is used to extract reflectances of
-water on MODIS band 7.}
+water on MODIS band 7. By default the masks from Wolski et al., 2017 are
+used.}
 }
 \value{
 logical indicating if the image is bimodal (TRUE) or not bimodal
 (FALSE)
 }
 \description{
-Function to check for bimodality in MODIS band 7. For details check Wolksi et
-al. 2017.
+Function to check for bimodality in MODIS MCD43A4 band 7. Bimodality is said
+to be achieved if peaks of water- and dryland reflectances are sufficiently
+distinct. For details check Wolksi et al. 2017.
 }

@@ -16,18 +16,26 @@ modis_classify(
 
 \item{watermask}{\code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
 representing the water-polygon that is used to extract reflectances of water
-on MODIS band 7.}
+on MODIS band 7. By default the masks from Wolski et al., 2017 are used. See
+also \code{modis_watermask()}.}
 
 \item{drymask}{\code{SpatialPolygons} or \code{SpatialPolygonsDataFrame}
 representing the dryland-polygon that is used to extract reflectances of
-water on MODIS band 7.}
+water on MODIS band 7. By default the masks from Wolski et al., 2017 are
+used.}
 
-\item{ignore.bimodality}{logical. Should the bimodality check be ignored?}
+\item{ignore.bimodality}{logical. Should issues with bimodality be ignored,
+i.e. the bimodality check be skipped? This can lead to biased
+classifications but may help in detecting issues.}
 }
 \value{
-\code{RasterLayer} of classified MODIS image
+\code{RasterLayer} of classified MODIS image. water is valued 1,
+dryland valued 0. If there are clouds, they are masked as NA.
 }
 \description{
-Function to classify a MODIS image into the binary categories water and
-dryland. Water = 1, Dryland = 0.
+Function to classify MODIS MCD43A4 band 7 into the binary categories water
+and dryland. Classification is based on the algorithm described in Wolski et
+al., 2017 and requires that reflectance values of water- and dryland are
+sufficiently distinct. The final map binarily depicts water = 1 and dryland =
+0.
 }

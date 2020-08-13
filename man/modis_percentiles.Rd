@@ -19,5 +19,5 @@ representing permanent dryland}
 dataframe of percentiles
 }
 \description{
-Function to calculate percentiles in water and dryland reflectance values
+Function to calculate percentiles of water and dryland reflectance values
 }

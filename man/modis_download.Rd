@@ -14,8 +14,11 @@ modis_download(
 )
 }
 \arguments{
-\item{outdir}{character. Directory were the processed files should be stored
-to. This is the raw data that will be used for floodmapping}
+\item{dates}{character vector of dates. Dates for which a modis image should
+be downloaded. Needs to be of format "YYYY-mm-dd".}
+
+\item{outdir}{character. Directory were the downloaded and processed files
+should be stored to. This data will be used in \code{modis_classify()}}
 
 \item{username}{character. Username of your EarthData account}
 
@@ -24,12 +27,9 @@ to. This is the raw data that will be used for floodmapping}
 \item{overwrite}{logical. If such a file already exists in the path, should
 it be overwritten?}
 
-\item{date}{character vector of dates. Dates for which a modis image should be
-downloaded. Needs to be of format "YYYY-mm-dd".}
-
-\item{tempdir}{character. Directory were intermediary files should be stored.
-By default this is determined by \code{tempdir()}. However, you can change
-this to another folder.}
+\item{tempdir}{character. Directory were intermediary files should be stored
+to (e.g. hdf files). By default these are stored to \code{tempdir()}.
+However, you can change this to any other folder.}
 }
 \value{
 Character vector of filename pointing to the downloaded files

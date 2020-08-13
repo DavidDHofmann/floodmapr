@@ -10,10 +10,10 @@ modis_load(filepath = NULL)
 \item{filepath}{character. Filepath pointing to the downloaded modis file}
 }
 \value{
-\code{RasterLayer} containing only band 7 of the downloaded modis
-satellite imagery
+\code{RasterLayer} containing only MODIS MCD43A4 band 7
 }
 \description{
-Function to load a file that was downloaded using \code{modis_download()}.
-This function simply wraps the command \code{raster(filepath, band = 7)}.
+Function to load downloaded MODIS MCD43A4 band 7 (see
+\code{modis_download()}). This function simply wraps the command
+\code{raster(filepath, band = 7)}.
 }
