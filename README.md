@@ -1,5 +1,5 @@
-# watermapr
-`watermapr` is an R-package that let's you download and classify  [MODIS
+# floodmapr
+`floodmapr` is an R-package that let's you download and classify  [MODIS
 MCD43A4](https://lpdaac.usgs.gov/products/mcd43a4v006/) satellite imagery into
 binary maps of dryland and water cover. To be able to download data, you need to
 have an [EarthData](https://earthdata.nasa.gov/) account (free). The
@@ -13,15 +13,15 @@ Data“. International Journal of Applied Earth Observation and Geoinformation 5
 (Mai 2017): 224–34. https://doi.org/10.1016/j.jag.2017.01.005.*
 
 ## Installation
-To install `watermapr` you need to have the package `devtools` installed. You
+To install `floodmapr` you need to have the package `devtools` installed. You
 can simply do:
 
 ```
 library(devtools)
-install_github("DavidDHofmann/watermapr")
+install_github("DavidDHofmann/floodmapr")
 ```
 
-Note that the `watermapr` package also depends on the r-package `velox`, which
+Note that the `floodmapr` package also depends on the r-package `velox`, which
 is not available from CRAN anymore. To install `velox`, you have three options:
 
 #### Option 1
@@ -50,7 +50,7 @@ R CMD INSTALL velox_0.2.0.tar.gz
 ```
 
 ## Workflow
-The `watermapr` package follows a three step process using the functions,
+The `floodmapr` package follows a three step process using the functions,
 `modis_download()`, `modis_load()`, and `modis_classify()`.
 
 1. `modis_download()` Download MCD43A4 satellite imagery for desired dates for
@@ -90,7 +90,7 @@ were frequently flooded in the past.
 Here is a complete example of the above outlined workflow
 
 ```
-library(watermapr)
+library(floodmapr)
 
 # Download modis data
 downloaded <- modis_download(
