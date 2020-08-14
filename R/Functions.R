@@ -60,9 +60,17 @@ modis_download <- function(
   if (missing(dates)){stop("Provide dates")}
   if (missing(username)){stop("Provide username to access earth data")}
   if (missing(password)){stop("Provide password to access earth data")}
+  if (!dir.exists(outdir)){stop("Specified output directory does not exist")}
+  if (!dir.exists(tmpdir)){stop("Specified temporary directory does not exist")}
 
   # Retrieve area of interest
   aoi <- masks_polygons[masks_polygons$Description == "aoi", ]
+
+  # Make sure there are no duplicates
+  if (length(dates) != length(unique(dates))){
+    warning("Some dates are duplicated. Using only unique dates")
+    dates <- unique(dates)
+  }
 
   # Identify all files that we need to download. For each date there should only
   # be two (two tiles). Since the search also returns files slightly before or
@@ -109,27 +117,35 @@ modis_download <- function(
   # There are two tiles per date. We need to stitch them. Thus, create a tibble
   # that shows which files need to be combined
   cat("All hdf files extracted. Stitching tiles now...\n")
-  dat <- data.frame(Path = extracted, Date = modis_date(basename(extracted)))
-  dat <- dat %>% group_by(date) %>% nest()
+  dat <- data.frame(
+      Path = extracted
+    , Date = modis_date(basename(extracted)) %>% as.matrix() %>% as.vector()
+  ) %>% mutate_all(., as.character)
+  dat <- dat %>% group_by(Date) %>% nest()
   stitched <- lapply(1:nrow(dat), function(x){
-    .modisStitch(
-        filepaths = dat$data[[x]]$Path
-      , outdir    = outdir
-      , outname   = paste0(dat$date[x], ".tif")
-      , overwrite = overwrite
+    suppressWarnings(
+      .modisStitch(
+          filepaths = dat$data[[x]]$Path
+        , outdir    = outdir
+        , outname   = paste0(dat$Date[x], ".tif")
+        , overwrite = overwrite
+      )
     )
   }) %>% do.call(c, .)
+
+  # Remove unstitched files
+  file.remove(extracted)
 
   # Reproject and crop stitched raster, then save
   cat("All tiles stitched. Reprojecting and cropping final tiles now...\n")
   final <- lapply(1:length(stitched), function(x){
     r <- rast(stitched[x])
-    r <- project(r, y = CRS("+init=epsg:4326"), method = "near")
-    r <- crop(r, aoi)
+    r <- project(r, y = "+init=epsg:4326", method = "near")
+    r <- terra::crop(r, aoi, snap = "out")
     names(r) <- paste0("Band_", 1:7)
 
     # Store it and return the directory
-    r <- writeRaster(
+    r <- terra::writeRaster(
         r
       , filename  = stitched[x]
       , format    = "GTiff"
@@ -138,7 +154,7 @@ modis_download <- function(
     )
     return(stitched[x])
   }) %>% do.call(c, .)
-  cat("Finished!")
+  cat("Finished!\n")
   return(final)
 }
 
@@ -805,7 +821,7 @@ modis_percentiles <- function(
   names(r) <- paste0("Band_", 1:7)
 
   # Store the stacked file
-  writeRaster(
+  terra::writeRaster(
       r
     , filename  = filename
     , format    = "GTiff"
