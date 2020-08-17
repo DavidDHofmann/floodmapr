@@ -139,19 +139,19 @@ modis_download <- function(
   # Reproject and crop stitched raster, then save
   cat("All tiles stitched. Reprojecting and cropping final tiles now...\n")
   final <- lapply(1:length(stitched), function(x){
-    r <- rast(stitched[x])
-    r <- project(r, y = "+init=epsg:4326", method = "near")
-    r <- terra::crop(r, aoi, snap = "out")
+    beginCluster()
+    r <- stack(stitched[x])
+    r <- projectRaster(r, crs = CRS("+init=epsg:4326"), method = "bilinear")
+    r <- crop(r, aoi)
     names(r) <- paste0("Band_", 1:7)
-
-    # Store it and return the directory
-    r <- terra::writeRaster(
+    r <- writeRaster(
         r
       , filename  = stitched[x]
       , format    = "GTiff"
       , overwrite = TRUE
       , options   = c("INTERLEAVE = BAND", "COMPRESS = LZW")
     )
+    endCluster()
     return(stitched[x])
   }) %>% do.call(c, .)
   cat("Finished!\n")
