@@ -397,6 +397,12 @@ modis_watermask <- function(
   , years     = 5
   , threshold = 0.99){
 
+  # Some error messages
+  if (missing(filenames)){stop("Provide filenames")}
+  if (missing(filedates)){stop("Provide filedates")}
+  if (threshold < 0 | threshold > 1){stop("Threshold needs to be between 0 and 1")}
+  if (years < 0){stop("Can't have negative years")}
+
   # Make naming nicer
   end_date <- date
 
@@ -409,6 +415,7 @@ modis_watermask <- function(
 
   # Keep only those filenames which are within the period of interest
   filenames <- filenames[filedates %in% period]
+  if (length(filenames) == 0){stop("No files available for the desired years")}
 
   # Load the files into a stack
   formask <- rast(filenames, bands = 1)
@@ -422,6 +429,16 @@ modis_watermask <- function(
 
   # Identify areas where there was water 99% of the time
   areas <- sum > threshold * nlyr(formask)
+
+  # In case the threshold cannot be fulfilled, reduce it
+  i <- 1
+  while (minmax(areas)[2, ] == 0){
+    cat("Threshold too high. Reducing by 5%...\n")
+    areas <- sum >= (threshold - i * 0.05) * nlyr(formask)
+    i <- i + 1
+  }
+
+  # Coerce SpatRaster to RasterLayer
   areas <- raster(areas)
 
   # Polygonize
