@@ -139,8 +139,8 @@ modis_download <- function(
   # Reproject and crop stitched raster, then save
   cat("All tiles stitched. Reprojecting and cropping final tiles now...\n")
   final <- lapply(1:length(stitched), function(x){
-    beginCluster()
     r <- stack(stitched[x])
+    r <- crop(r, spTransform(aoi, crs(r)), snap = "out")
     r <- projectRaster(r, crs = CRS("+init=epsg:4326"), method = "bilinear")
     r <- crop(r, aoi)
     names(r) <- paste0("Band_", 1:7)
@@ -151,9 +151,10 @@ modis_download <- function(
       , overwrite = TRUE
       , options   = c("INTERLEAVE = BAND", "COMPRESS = LZW")
     )
-    endCluster()
     return(stitched[x])
   }) %>% do.call(c, .)
+
+  # Return the location of the final file
   cat("Finished!\n")
   return(final)
 }
@@ -429,14 +430,6 @@ modis_watermask <- function(
 
   # Identify areas where there was water 99% of the time
   areas <- sum > threshold * nlyr(formask)
-
-  # In case the threshold cannot be fulfilled, reduce it
-  i <- 1
-  while (minmax(areas)[2, ] == 0){
-    cat("Threshold too high. Reducing by 5%...\n")
-    areas <- sum >= (threshold - i * 0.05) * nlyr(formask)
-    i <- i + 1
-  }
 
   # Coerce SpatRaster to RasterLayer
   areas <- raster(areas)
