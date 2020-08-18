@@ -87,6 +87,7 @@ used to create a dynamic watermask that can be fed into `modis_classify()`. This
 dynamic mask uses already classified watermaps in order to determine areas that
 were frequently flooded in the past.
 
+## Example
 Here is a complete example of the above outlined workflow
 
 ```
