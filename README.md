@@ -1,5 +1,5 @@
 # floodmapr
-`floodmapr` is an R-package that let's you download and classify  [MODIS
+`floodmapr` is an R-package that allows you to download and classify  [MODIS
 MCD43A4](https://lpdaac.usgs.gov/products/mcd43a4v006/) satellite imagery into
 binary maps of dryland and water cover. To be able to download data, you need to
 have an [EarthData](https://earthdata.nasa.gov/) account (free). The
