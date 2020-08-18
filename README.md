@@ -7,11 +7,6 @@ classification algorithm is based on the publication of Wolski et al., 2017 and
 currently only applicable for the extent of the Okavango Delta (see [Okavango
 Research Institute](http://www.okavangodata.ub.bw/ori/monitoring/flood_maps/#)).
 
-*Wolski, Piotr, Mike Murray-Hudson, Kgalalelo Thito, und Lin Cassidy. „Keeping It
-Simple: Monitoring Flood Extent in Large Data-Poor Wetlands Using MODIS SWIR
-Data“. International Journal of Applied Earth Observation and Geoinformation 57
-(Mai 2017): 224–34. https://doi.org/10.1016/j.jag.2017.01.005.*
-
 ## Installation
 To install `floodmapr` you need to have the package `devtools` installed. You
 can simply do:
@@ -117,3 +112,9 @@ classified <- modis_classify(loaded, ignore.bimodality = T)
 # Visualize classified image
 plot(classified)
 ```
+
+## References
+*Wolski, Piotr, Mike Murray-Hudson, Kgalalelo Thito, und Lin Cassidy. „Keeping It
+Simple: Monitoring Flood Extent in Large Data-Poor Wetlands Using MODIS SWIR
+Data“. International Journal of Applied Earth Observation and Geoinformation 57
+(Mai 2017): 224–34. https://doi.org/10.1016/j.jag.2017.01.005.*
