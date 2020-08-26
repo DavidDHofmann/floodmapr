@@ -136,13 +136,15 @@ modis_download <- function(
   # Remove unstitched files
   file.remove(extracted)
 
-  # Reproject and crop stitched raster, then save
+  # Reproject and crop stitched raster, then save. Note that we will use ngb for
+  # resampling. The reason is that bilinear interpolation would potentially
+  # contaminate or be contaminated by NA values.
   cat("All tiles stitched. Reprojecting and cropping final tiles now...\n")
   final <- lapply(1:length(stitched), function(x){
     r <- stack(stitched[x])
     r <- crop(r, spTransform(aoi, crs(r)), snap = "out")
-    r <- projectRaster(r, crs = CRS("+init=epsg:4326"), method = "bilinear")
-    r <- crop(r, aoi)
+    r <- projectRaster(r, crs = CRS("+init=epsg:4326"), method = "ngb")
+    r <- crop(r, aoi, snap = "out")
     names(r) <- paste0("Band_", 1:7)
     r <- writeRaster(
         r
@@ -405,7 +407,7 @@ modis_watermask <- function(
   if (years < 0){stop("Can't have negative years")}
 
   # Make naming nicer
-  end_date <- date
+  end_date <- as.Date(date)
 
   # Subtract 5 years, to get the first date we would include to calculate the mask
   start_date <- end_date - years(5)
@@ -435,13 +437,14 @@ modis_watermask <- function(
   areas <- raster(areas)
 
   # Polygonize
-  wetmask <- rasterToPolygons(areas
-    , fun = function(x){x == 1}
-    , dissolve = TRUE
+  wetmask <- rasterToPolygons(
+      areas
+    , fun       = function(x){x == 1}
+    , dissolve  = TRUE
   )
 
   # Apply a small negative buffer to avoid errors due to pixel size
-  wetmask <- suppressWarnings(gBuffer(wetmask, width = -1/111*0.25))
+  wetmask <- suppressWarnings(gBuffer(wetmask, width = -1 / 111 * 0.25))
 
   # Return the final watermask
   return(wetmask)
