@@ -607,17 +607,17 @@ modis_percentiles <- function(
 
   # We only download the file if it doesn't exist yet, or if we want to
   # overwrite it anyways
-  if (!file.exists(filename) | overwrite){
+  if ((!file.exists(filename)) | overwrite){
 
-    # Download file
-    file <- httr::GET(
-        url
-      , httr::authenticate(username, password)
-      , httr::progress()
-      , httr::write_disk(filename, overwrite = overwrite)
-    )
-  } else {
-    warning(paste0("file ", filename, " already exists, skipping download"))
+      # Download file
+      file <- httr::GET(
+          url
+        , httr::authenticate(username, password)
+        , httr::progress()
+        , httr::write_disk(filename, overwrite = overwrite)
+      )
+    } else {
+      warning(paste0("file ", filename, " already exists, skipping download"))
   }
   return(filename)
 }
