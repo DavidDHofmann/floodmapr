@@ -1,14 +1,12 @@
 ---
 output: 
   github_document:
-    fig_width: 7.5
-    fig_height: 6
   html_preview: false
 editor_options: 
   chunk_output_type: console
 ---
 
-# floodmapr
+# floodmapr<img src="man/figures/floodmapr.png" align="right" />
 `floodmapr` is an R-package that allows you to download and classify  [MODIS
 MCD43A4](https://lpdaac.usgs.gov/products/mcd43a4v006/) satellite imagery into
 binary maps of dryland and water cover. To be able to download data, you need to

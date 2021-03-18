@@ -1,5 +1,5 @@
 
-# floodmapr
+# floodmapr<img src="man/figures/compressed.png" align="right" />
 
 `floodmapr` is an R-package that allows you to download and classify
 [MODIS MCD43A4](https://lpdaac.usgs.gov/products/mcd43a4v006/) satellite
