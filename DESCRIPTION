@@ -23,10 +23,11 @@ Depends:
     R (>= 2.10),
     raster (>= 3.3.13)
 Imports:
-    dplyr,
-    magrittr,
-    tidyr,
-    lubridate,
-    rgeos,
-    gdalUtils,
-    terra
+    dplyr (>= 1.0.3),
+    magrittr (>= 2.0.1),
+    tidyr (>= 1.1.2),
+    lubridate (>= 1.7.9.2),
+    rgeos (>= 0.5-7),
+    gdalUtils (>= 2.0.3.2),
+    terra (>= 1.1-9),
+    RGISTools (>= 1.0.2)

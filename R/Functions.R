@@ -5,8 +5,9 @@
 #' @importFrom dplyr group_by mutate_all
 #' @importFrom magrittr %>%
 #' @importFrom tidyr nest
-#' @importFrom lubridate years
+#' @importFrom lubridate years ymd
 #' @importFrom rgeos gBuffer
+#' @importFrom RGISTools modSearch
 #' @importFrom gdalUtils get_subdatasets gdal_translate gdalbuildvrt
 NULL
 
@@ -56,12 +57,32 @@ modis_download <- function(
   , password  = NULL
   , overwrite = F){
 
-  # Some error messsages
+  # library(raster)
+  # library(terra)
+  # library(velox)
+  # library(gdalUtils)
+  # library(tidyverse)
+  # library(rgdal)
+  # library(rgeos)
+  # library(lubridate)
+  # library(RGISTools)
+  # dates <- c("2020-01-01")
+  # outdir <- "/home/david/Schreibtisch"
+  # tmpdir <- "/home/david/Schreibtisch"
+  # username <- "DoDx9"
+  # password <- "EarthData99"
+  # overwrite <- T
+  # load("/home/david/ownCloud/University/15. PhD/General/R-Packages/floodmapr/R/sysdata.rda")
+
+  # Error messsages
   if (missing(dates)){stop("Provide dates")}
   if (missing(username)){stop("Provide username to access earth data")}
   if (missing(password)){stop("Provide password to access earth data")}
   if (!dir.exists(outdir)){stop("Specified output directory does not exist")}
   if (!dir.exists(tmpdir)){stop("Specified temporary directory does not exist")}
+
+  # Parse dates
+  dates <- ymd(dates)
 
   # Retrieve area of interest
   aoi <- masks_polygons[masks_polygons$Description == "aoi", ]
@@ -75,15 +96,14 @@ modis_download <- function(
   # Identify all files that we need to download. For each date there should only
   # be two (two tiles). Since the search also returns files slightly before or
   # after the desired date, we need to subset.
-  todownload <- lapply(1:length(dates), function(x){
+  todownload <- lapply(seq_along(dates), function(x){
     files <- .modisFiles(
         product     = "MCD43A4"
       , version     = "006"
       , start_date  = dates[x]
       , end_date    = dates[x]
       , aoi         = aoi
-      , limit       = 100
-    ) %>% subset(as.character(date) == dates[x])
+    )
     if (nrow(files) != 2){
       stop("There are more than two files!\n")
     }
@@ -141,7 +161,7 @@ modis_download <- function(
   # contaminate or be contaminated by NA values.
   cat("All tiles stitched. Reprojecting and cropping final tiles now...\n")
   final <- lapply(1:length(stitched), function(x){
-    r <- stack(stitched[x])
+    r <- suppressWarnings(stack(stitched[x]))
     r <- crop(r, spTransform(aoi, crs(r)), snap = "out")
     r <- projectRaster(r, crs = CRS("+init=epsg:4326"), method = "ngb")
     r <- crop(r, aoi, snap = "out")
@@ -407,7 +427,7 @@ modis_watermask <- function(
   if (years < 0){stop("Can't have negative years")}
 
   # Make naming nicer
-  end_date <- as.Date(date)
+  end_date <- date
 
   # Subtract 5 years, to get the first date we would include to calculate the mask
   start_date <- end_date - years(5)
@@ -591,16 +611,47 @@ modis_percentiles <- function(
 ################################################################################
 #### Helper Functions
 ################################################################################
-# Helper function to download a single MODIS file
-.modisDownload <- function(
-    dataframe = NULL
-  , path      = getwd()
-  , username  = NULL
-  , password  = NULL
-  , overwrite = F){
+# Function to extract information from modis filenames
+.modisInfo <- function(urlname){
+  name <- basename(urlname)
+  info <- strsplit(name, split = "\\.")
+  info <- lapply(info, rbind)
+  info <- do.call(rbind, info)
+  info <- as.data.frame(info, stringsAsFactors = F)
+  names(info) <- c("Product", "AcquisitionDate", "Tile", "Version", "ProductionDate", "Format")
+  info$AcquisitionDate <- substr(info$AcquisitionDate, start = 2, stop = nchar(info$AcquisitionDate))
+  info$AcquisitionDate <- as.Date(info$AcquisitionDate, "%Y%j")
+  info$ProductionDate <- as.Date(as.POSIXct(info$ProductionDate, format = "%Y%j%H%M%S"))
+  return(info)
+}
+
+# Function to find available modis files
+.modisFiles <- function(product = "MCD43A4", version = "006", start_date, end_date, aoi) {
+
+  # Get available products
+  search_res <- modSearch(
+      product    = product
+    , collection = version
+    , startDate  = start_date
+    , endDate    = end_date
+    , extent     = extent(aoi)
+  )
+  search_res <- unname(search_res$hdf)
+
+  # Extract file info
+  results <- cbind(URL = search_res, .modisInfo(search_res), stringsAsFactors = F)
+
+  # Subset to dates of interest
+  results <- subset(results, AcquisitionDate >= start_date & AcquisitionDate <= end_date)
+
+  # Return dataframe of results
+  return(results)
+}
+
+.modisDownload <- function(dataframe, path = getwd(), username, password, overwrite = F) {
 
   # Extract url
-  url <- dataframe$`Online Access URLs`
+  url <- dataframe$URL
 
   # Specify output directory
   filename <- file.path(path, basename(url))
@@ -622,73 +673,104 @@ modis_percentiles <- function(
   return(filename)
 }
 
-# Helper function to prepare urls using query params
-.getSearchResults <- function(
-    url     = NULL
-  , limit   = NULL
-  , args    = NULL){
-
-  # We start with the first page
-  page_num <- 1
-
-  # Initiate an empty results vector
-  results <- NULL
-
-  # We continue to read data until the predefined limit is reached
-  while (length(results) < limit){
-
-    # Read data using api
-    response <- httr::GET(
-        url   = url
-      , query = c(args, page_num = page_num)
-      , httr::add_headers(Accept = "text/csv")
-    )
-
-    # Check for a valid response
-    httr::stop_for_status(response)
-
-    # Make sure the response is of format "text/csv"
-    if (httr::http_type(response) == "text/csv"){
-
-      # Read content as dataframe
-      data <- utils::read.csv(
-          text             = httr::content(response, as = "text")
-        , check.names      = FALSE
-        , stringsAsFactors = FALSE
-      )
-
-      # Verify that the URL column is not empty
-      catcher <- tryCatch(
-          urls <- data[["Online Access URLs"]]
-        , error = function(e){e}
-      )
-
-      # Make sure there is no error
-      if (!inherits(catcher, "error")){
-        if (length(urls) == 0){
-          break
-        }
-
-        # Append the full table of results
-        results <- rbind(results, data)
-        page_num <- page_num + 1
-
-      # In case there is an error
-      } else {
-
-        # We break the loop
-        break
-      }
-
-    # If the response is not of format "text/csv"
-    } else {
-
-      # We break the loop
-      break
-    }
-  }
-  return(results)
-}
+# # Helper function to download a single MODIS file
+# .modisDownload <- function(
+#     dataframe = NULL
+#   , path      = getwd()
+#   , username  = NULL
+#   , password  = NULL
+#   , overwrite = F){
+#
+#   # Extract url
+#   url <- dataframe$`Online Access URLs`
+#
+#   # Specify output directory
+#   filename <- file.path(path, basename(url))
+#
+#   # We only download the file if it doesn't exist yet, or if we want to
+#   # overwrite it anyways
+#   if ((!file.exists(filename)) | overwrite){
+#
+#       # Download file
+#       file <- httr::GET(
+#           url
+#         , httr::authenticate(username, password)
+#         , httr::progress()
+#         , httr::write_disk(filename, overwrite = overwrite)
+#       )
+#     } else {
+#       warning(paste0("file ", filename, " already exists, skipping download"))
+#   }
+#   return(filename)
+# }
+#
+# # Helper function to prepare urls using query params
+# .getSearchResults <- function(
+#     url     = NULL
+#   , limit   = NULL
+#   , args    = NULL){
+#
+#   # We start with the first page
+#   page_num <- 1
+#
+#   # Initiate an empty results vector
+#   results <- NULL
+#
+#   # We continue to read data until the predefined limit is reached
+#   while (length(results) < limit){
+#
+#     # Read data using api
+#     response <- httr::GET(
+#         url   = url
+#       , query = c(args, page_num = page_num)
+#       , httr::add_headers(Accept = "text/csv")
+#     )
+#
+#     # Check for a valid response
+#     httr::stop_for_status(response)
+#
+#     # Make sure the response is of format "text/csv"
+#     if (httr::http_type(response) == "text/csv"){
+#
+#       # Read content as dataframe
+#       data <- utils::read.csv(
+#           text             = httr::content(response, as = "text")
+#         , check.names      = FALSE
+#         , stringsAsFactors = FALSE
+#       )
+#
+#       # Verify that the URL column is not empty
+#       catcher <- tryCatch(
+#           urls <- data[["Online Access URLs"]]
+#         , error = function(e){e}
+#       )
+#
+#       # Make sure there is no error
+#       if (!inherits(catcher, "error")){
+#         if (length(urls) == 0){
+#           break
+#         }
+#
+#         # Append the full table of results
+#         results <- rbind(results, data)
+#         page_num <- page_num + 1
+#
+#       # In case there is an error
+#       } else {
+#
+#         # We break the loop
+#         break
+#       }
+#
+#     # If the response is not of format "text/csv"
+#     } else {
+#
+#       # We break the loop
+#       break
+#     }
+#   }
+#   return(results)
+# }
 
 # Helper function to retrieve the extent of a spatial object
 .getExtent <- function(aoi){
@@ -707,92 +789,92 @@ modis_percentiles <- function(
   return(as.Date(doy, origin = paste(year - 1, "-12-31", sep = '')))
 }
 
-# Function to show available products. This function allows you to determine
-# which MODIS products are available for download.
-.modisProducts <- function(product){
-
-  # Retrieve available products from cmr
-  prods <- read.csv("https://cmr.earthdata.nasa.gov/search/humanizers/report")
-
-  # Remove undesired columns
-  prods$original_value <- NULL
-  prods$humanized_value <- NULL
-
-  # Grep desired product
-  if (!missing(product)){
-
-    # If multiple products, paste them together into a single grep call
-    if (length(product) > 1){
-      product <- paste0(product, collapse = "|")
-    }
-
-    # Subset
-    prods <- prods[grep(product, prods$short_name), ]
-  }
-
-  # Coerce everything to character
-  prods <- mutate_all(prods, as.character)
-
-  # Return unique entries
-  return(unique(prods))
-}
-
-# Function to retrieve available files from a modis product. This function
-# allows you to find and select files that you want to download.
-.modisFiles <-  function(
-    product     = "MCD43A4"
-  , version     = "006"
-  , start_date  = NULL
-  , end_date    = NULL
-  , aoi         = NULL
-  , limit       = 100){
-
-  # Make sure the product exists
-  dd <- .modisProducts(product)
-  dd <- dd[dd$short_name == product & dd$version == version, ]
-
-  # In case there is no such data, interrupt. In case there are multiple sources
-  # of data, continue and use first
-  if (nrow(dd) < 1){
-    stop("Requested product not available")
-  } else if (nrow(dd) > 1){
-    warning("Multiple sources available, using first")
-    print(dd)
-    dd <- dd[1, ]
-  }
-
-  # Specify date suffix
-  datesuffix <- "T00:00:00Z"
-
-  # Convert dates to proper dates
-  start_date  <- as.Date(start_date)
-  end_date    <- as.Date(end_date)
-  temporal    <- paste0(start_date, datesuffix, ",", end_date, datesuffix)
-
-  # Put URLs together
-  cmr_host <- "https://cmr.earthdata.nasa.gov"
-  url <- file.path(cmr_host, "search/granules")
-
-  # Retrieve extent
-  ext <- .getExtent(aoi)
-
-  # Put query parameters together
-  params <- list(
-      short_name    = product
-    ,	temporal      = temporal
-    , downloadable  = "true"
-    , bounding_box  = ext
-  )
-
-  # Run query
-  results <- .getSearchResults(url = url, limit = limit, args = params)
-
-  # Identify modis dates
-  results <- cbind(results, modis_date(results$`Producer Granule ID`))
-
-  # Return the results
-  return(results)
-}
+# # Function to show available products. This function allows you to determine
+# # which MODIS products are available for download.
+# .modisProducts <- function(product){
+#
+#   # Retrieve available products from cmr
+#   prods <- read.csv("https://cmr.earthdata.nasa.gov/search/humanizers/report")
+#
+#   # Remove undesired columns
+#   prods$original_value <- NULL
+#   prods$humanized_value <- NULL
+#
+#   # Grep desired product
+#   if (!missing(product)){
+#
+#     # If multiple products, paste them together into a single grep call
+#     if (length(product) > 1){
+#       product <- paste0(product, collapse = "|")
+#     }
+#
+#     # Subset
+#     prods <- prods[grep(product, prods$short_name), ]
+#   }
+#
+#   # Coerce everything to character
+#   prods <- mutate_all(prods, as.character)
+#
+#   # Return unique entries
+#   return(unique(prods))
+# }
+#
+# # Function to retrieve available files from a modis product. This function
+# # allows you to find and select files that you want to download.
+# .modisFiles <-  function(
+#     product     = "MCD43A4"
+#   , version     = "006"
+#   , start_date  = NULL
+#   , end_date    = NULL
+#   , aoi         = NULL
+#   , limit       = 100){
+#
+#   # Make sure the product exists
+#   dd <- .modisProducts(product)
+#   dd <- dd[dd$short_name == product & dd$version == version, ]
+#
+#   # In case there is no such data, interrupt. In case there are multiple sources
+#   # of data, continue and use first
+#   if (nrow(dd) < 1){
+#     stop("Requested product not available")
+#   } else if (nrow(dd) > 1){
+#     warning("Multiple sources available, using first")
+#     print(dd)
+#     dd <- dd[1, ]
+#   }
+#
+#   # Specify date suffix
+#   datesuffix <- "T00:00:00Z"
+#
+#   # Convert dates to proper dates
+#   start_date  <- as.Date(start_date)
+#   end_date    <- as.Date(end_date)
+#   temporal    <- paste0(start_date, datesuffix, ",", end_date, datesuffix)
+#
+#   # Put URLs together
+#   cmr_host <- "https://cmr.earthdata.nasa.gov"
+#   url <- file.path(cmr_host, "search/granules")
+#
+#   # Retrieve extent
+#   ext <- .getExtent(aoi)
+#
+#   # Put query parameters together
+#   params <- list(
+#       short_name    = product
+#     ,	temporal      = temporal
+#     , downloadable  = "true"
+#     , bounding_box  = ext
+#   )
+#
+#   # Run query
+#   results <- .getSearchResults(url = url, limit = limit, args = params)
+#
+#   # Identify modis dates
+#   results <- cbind(results, modis_date(results$`Producer Granule ID`))
+#
+#   # Return the results
+#   return(results)
+# }
 
 # Function to convert the downloaded hdf files to proper .tif rasters
 .modisExtract <- function(
@@ -837,9 +919,9 @@ modis_percentiles <- function(
   terra::writeRaster(
       r
     , filename  = filename
-    , format    = "GTiff"
+    , filetype  = "GTiff"
     , overwrite = TRUE
-    , options   = c("INTERLEAVE = BAND", "COMPRESS = LZW")
+    , gdal      = c("INTERLEAVE = BAND", "COMPRESS = LZW")
   )
 
   # Remove the seperate bands
@@ -879,6 +961,10 @@ modis_percentiles <- function(
     , output_Raster = TRUE
     , options       = c("BIGTIFFS=YES")
   )
+
+  # Remove aux files
+  remove <- paste0(filename, ".aux.xml")
+  file.remove(remove)
 
   # Return the filepath to the stitched file
   return(filename)
