@@ -1,8 +1,8 @@
 ---
-output: 
+output:
   github_document:
   html_preview: false
-editor_options: 
+editor_options:
   chunk_output_type: console
 ---
 
@@ -14,7 +14,7 @@ have an [EarthData](https://earthdata.nasa.gov/) account (free). The
 classification algorithm is based on the publication of Wolski et al., 2017 and
 currently only applicable for the extent of the Okavango Delta (see [Okavango
 Research Institute](http://www.okavangodata.ub.bw/ori/monitoring/flood_maps/#)).
-
+<!--
 ## Installation
 To install `floodmapr` you need to have the package `devtools` installed. You
 can simply do:
@@ -45,7 +45,7 @@ install_github("hunzikp/velox")
 
 #### Option 3
 Finally, you can download the archived zip and install the package from your
-terminal (not from within R).
+terminal (not from within R). -->
 
 ```
 wget https://cran.r-project.org/src/contrib/Archive/velox/velox_0.2.0.tar.gz
@@ -85,10 +85,12 @@ band 7.
 
 - `modis_precentiles()` percentile values of water- and dryland-reflecatances.
 
-Finally, there is a function called `modis_watermap()`. This function can be
-used to create a dynamic watermask that can be fed into `modis_classify()`. This
-dynamic mask uses already classified watermaps in order to determine areas that
-were frequently flooded in the past.
+Finally, there is a function called `modis_watermask()`. This function can be
+used to create a dynamic watermask that can ultimately be fed into
+`modis_classify()`. In contrast to the static watermask used by `floodmapr` in
+the background, the dynamic watermask uses previously classified foodmaps to
+determine areas that were frequently flooded in the past. This way, the
+algorithm is able to learn about potential long-term changes in the system.
 
 ## Example
 Here is a complete example of the above outlined workflow

@@ -10,6 +10,7 @@ modis_download(
   tmpdir = tempdir(),
   username = NULL,
   password = NULL,
+  messages = T,
   overwrite = F
 )
 }

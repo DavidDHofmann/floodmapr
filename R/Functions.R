@@ -1,7 +1,7 @@
 ################################################################################
 #### Load Dependencies
 ################################################################################
-#' @import raster terra velox ggplot2 sp
+#' @import raster terra ggplot2 sp
 #' @importFrom dplyr group_by mutate_all
 #' @importFrom magrittr %>%
 #' @importFrom tidyr nest
@@ -55,11 +55,10 @@ modis_download <- function(
   , tmpdir    = tempdir()
   , username  = NULL
   , password  = NULL
-  , overwrite = F){
+  , messages  = T
+  , overwrite = F) {
 
-  # library(raster)
   # library(terra)
-  # library(velox)
   # library(gdalUtils)
   # library(tidyverse)
   # library(rgdal)
@@ -72,6 +71,7 @@ modis_download <- function(
   # username <- "DoDx9"
   # password <- "EarthData99"
   # overwrite <- T
+  # messages <- T
   # load("/home/david/ownCloud/University/15. PhD/General/R-Packages/floodmapr/R/sysdata.rda")
 
   # Error messsages
@@ -113,7 +113,9 @@ modis_download <- function(
   # Download all selected files to a temporary directory
   downloaded <- rep(NA, nrow(todownload))
   for (i in 1:nrow(todownload)){
-    cat("Downloading tiles:", i, "out of", nrow(todownload), "\n")
+    if (messages) {
+      cat("Downloading tiles:", i, "out of", nrow(todownload), "\n")
+    }
     downloaded[i] <- .modisDownload(
         dataframe = todownload[i, ]
       , path      = tmpdir
@@ -124,7 +126,9 @@ modis_download <- function(
   }
 
   # Extract tiffs
-  cat("All tiles downloaded. Extracting tiffs from hdf files now...\n")
+  if (messages) {
+    cat("All tiles downloaded. Extracting tiffs from hdf files now...\n")
+  }
   extracted <- lapply(1:length(downloaded), function(x){
     .modisExtract(
         filepath  = downloaded[x]
@@ -136,7 +140,9 @@ modis_download <- function(
 
   # There are two tiles per date. We need to stitch them. Thus, create a tibble
   # that shows which files need to be combined
-  cat("All hdf files extracted. Stitching tiles now...\n")
+  if (messages) {
+    cat("All hdf files extracted. Stitching tiles now...\n")
+  }
   dat <- data.frame(
       Path = extracted
     , Date = modis_date(basename(extracted)) %>% as.matrix() %>% as.vector()
@@ -159,25 +165,29 @@ modis_download <- function(
   # Reproject and crop stitched raster, then save. Note that we will use ngb for
   # resampling. The reason is that bilinear interpolation would potentially
   # contaminate or be contaminated by NA values.
-  cat("All tiles stitched. Reprojecting and cropping final tiles now...\n")
+  if (messages) {
+    cat("All tiles stitched. Reprojecting and cropping final tiles now...\n")
+  }
   final <- lapply(1:length(stitched), function(x){
-    r <- suppressWarnings(stack(stitched[x]))
-    r <- crop(r, spTransform(aoi, crs(r)), snap = "out")
-    r <- projectRaster(r, crs = CRS("+init=epsg:4326"), method = "ngb")
+    r <- rast(stitched[x])
+    r <- suppressWarnings(crop(r, spTransform(aoi, crs(r)), snap = "out"))
+    r <- terra::project(r, "+proj=longlat +datum=WGS84 +no_defs", method = "near")
     r <- crop(r, aoi, snap = "out")
     names(r) <- paste0("Band_", 1:7)
-    r <- writeRaster(
+    r <- terra::writeRaster(
         r
       , filename  = stitched[x]
-      , format    = "GTiff"
+      , filetype  = "GTiff"
       , overwrite = TRUE
-      , options   = c("INTERLEAVE = BAND", "COMPRESS = LZW")
+      , gdal      = c("INTERLEAVE = BAND", "COMPRESS = LZW")
     )
     return(stitched[x])
   }) %>% do.call(c, .)
 
   # Return the location of the final file
-  cat("Finished!\n")
+  if (messages) {
+    cat("Finished!\n")
+  }
   return(final)
 }
 
@@ -205,7 +215,7 @@ modis_download <- function(
 #' modis <- modis_load(files[1])
 #' show(modis)
 #'}
-modis_load <- function(filepath = NULL){
+modis_load <- function(filepath = NULL) {
 
   # Make sure only one file is given
   if (length(filepath) > 1){
@@ -213,7 +223,7 @@ modis_load <- function(filepath = NULL){
   }
 
   # Load it
-  return(raster(filepath, band = 7))
+  return(rast(filepath)[[7]])
 }
 
 #' Classify MODIS Image
@@ -263,19 +273,19 @@ modis_classify <- function(
     x                 = NULL
   , watermask         = NULL
   , drymask           = NULL
-  , ignore.bimodality = F){
+  , ignore.bimodality = F) {
 
   # Retrieve water, nowater and dryland masks
-  water   <- masks_polygons[masks_polygons$Description == "water", ]
-  dryland <- masks_polygons[masks_polygons$Description == "dryland", ]
-  nowater <- masks_polygons[masks_polygons$Description == "nowater", ]
+  water   <- vect(masks_polygons[masks_polygons$Description == "water", ])
+  dryland <- vect(masks_polygons[masks_polygons$Description == "dryland", ])
+  nowater <- vect(masks_polygons[masks_polygons$Description == "nowater", ])
 
   # In case a watermask or drymask is provided, use them
   if (!is.null(watermask)){water <- watermask}
   if (!is.null(drymask)){dryland <- drymask}
 
   # Check if the image is bimodal
-  if (!ignore.bimodality){
+  if (!ignore.bimodality) {
     bimodal <- modis_bimodal(
         x         = x
       , watermask = water
@@ -289,32 +299,24 @@ modis_classify <- function(
   }
 
   # Extract the spectral values of band 7 below the dryland and water
-  # polygons. To speed up the extraction we coerce the MODIS band to a velox
-  # raster
-  band7 <- velox(x)
-  wat <- band7$extract(water) %>%
-    do.call(rbind, .) %>%
-    as.vector() %>%
-    median(na.rm = TRUE)
-  dry <- band7$extract(dryland) %>%
-    do.call(rbind, .) %>%
-    as.vector() %>%
-    median(na.rm = TRUE)
+  # polygons
+  wat <- mask(x, water) %>% as.vector() %>% na.omit() %>% median()
+  dry <- mask(x, dryland) %>% as.vector() %>% na.omit() %>% median()
 
   # Calculate the classification threshold
   mu <- wat + 0.3 * (dry - wat)
 
-  # Predict/Classify the MODIS image into water (1) and dryland (0) using the
-  # above calculated threshold (Clouds will become NA anyways)
-  pred <- reclassify(x, c(0,mu,1, mu,1,0))
+  # Predict/Classify the MODIS image into dryland (0), water (1), and clouds
+  # (2), using the above calculated threshold
+  # pred <- reclassify(x, c(0,mu,1, mu,1,0))
+  rcl <- data.frame(from = c(NA, 0, mu), to = c(NA, mu, 1), new = c(2, 1, 0))
+  pred <- classify(x, rcl)
 
-  # Get rid of areas that are most likely misclassified or only small ponds
-  # that are irrelevant for our study. Set the raster values below this
-  # polygon to 0
-  pred <- raster::mask(pred, nowater, updatevalue = 0, inverse = TRUE)
+  # Get rid of areas that are always dry
+  pred <- mask(pred, nowater, updatevalue = 0, inverse = TRUE)
 
   # Write the raster to a temporary file
-  pred <- writeRaster(pred, tempfile())
+  pred <- terra::writeRaster(pred, tempfile(fileext = ".tif"))
 
   # Return the classified image
   return(pred)
@@ -361,15 +363,15 @@ modis_classify <- function(
 modis_bimodal <- function(
     x                 = NULL
   , watermask         = NULL
-  , drymask           = NULL){
+  , drymask           = NULL) {
 
   # Retrieve water, nowater and dryland masks
-  water   <- masks_polygons[masks_polygons$Description == "water", ]
-  dryland <- masks_polygons[masks_polygons$Description == "dryland", ]
+  water   <- vect(masks_polygons[masks_polygons$Description == "water", ])
+  dryland <- vect(masks_polygons[masks_polygons$Description == "dryland", ])
 
   # In case a watermask or drymask is provided, use them
-  if (!is.null(watermask)){water <- watermask}
-  if (!is.null(drymask)){dryland <- drymask}
+  if (!is.null(watermask)) {water <- watermask}
+  if (!is.null(drymask)) {dryland <- drymask}
 
   # Check if the image is bimodal
   perc <- modis_percentiles(x, watermask = water, drymask = dryland)
@@ -387,7 +389,7 @@ modis_bimodal <- function(
 #' @param filename character. Filename(s) of the files for which a date should
 #' be extracted
 #' @return character. Dates as derived from the MODIS filename
-modis_date <- function(filename = NULL){
+modis_date <- function(filename = NULL) {
   ff <- basename(filename)
   dot <- sapply(strsplit(ff, "\\."), '[', 2)
   dates <- gsub("[aA-zZ]", "", dot)
@@ -420,11 +422,17 @@ modis_watermask <- function(
   , years     = 5
   , threshold = 0.99){
 
+  # filenames <- dir("/home/david/ownCloud/University/15. PhD/Chapter_2/03_Data/02_CleanData/00_Floodmaps", full.names = T)
+  # filedates <- ymd(basename(filenames))
+  # date <- ymd("2018-01-01")
+  # years <- 5
+  # threshold <- 0.99
+
   # Some error messages
-  if (missing(filenames)){stop("Provide filenames")}
-  if (missing(filedates)){stop("Provide filedates")}
-  if (threshold < 0 | threshold > 1){stop("Threshold needs to be between 0 and 1")}
-  if (years < 0){stop("Can't have negative years")}
+  if (missing(filenames)){ stop("Provide filenames") }
+  if (missing(filedates)){ stop("Provide filedates") }
+  if (threshold < 0 | threshold > 1){ stop("Threshold needs to be between 0 and 1") }
+  if (years < 0){ stop("Can't have negative years") }
 
   # Make naming nicer
   end_date <- date
@@ -438,13 +446,15 @@ modis_watermask <- function(
 
   # Keep only those filenames which are within the period of interest
   filenames <- filenames[filedates %in% period]
-  if (length(filenames) == 0){stop("No files available for the desired years")}
+  if (length(filenames) == 0){
+    stop("No files available for the desired years")
+  }
 
   # Load the files into a stack
-  formask <- rast(filenames, bands = 1)
+  formask <- rast(filenames)
 
   # Reclassify the stack so that water becomes 1, dryland and clouds 0
-  rcl <- data.frame(old = c(0, 127, 255), new = c(1, 0, 0))
+  rcl <- data.frame(old = c(0, 1, 2), new = c(0, 1, 0))
   formask <- classify(formask, rcl)
 
   # Sum the layers
@@ -459,7 +469,7 @@ modis_watermask <- function(
   # Polygonize
   wetmask <- rasterToPolygons(
       areas
-    , fun       = function(x){x == 1}
+    , fun       = function(x){ x == 1 }
     , dissolve  = TRUE
   )
 
@@ -467,7 +477,7 @@ modis_watermask <- function(
   wetmask <- suppressWarnings(gBuffer(wetmask, width = -1 / 111 * 0.25))
 
   # Return the final watermask
-  return(wetmask)
+  return(vect(wetmask))
 }
 
 #' Compare Spectral Signatures of MODIS Maps
@@ -509,24 +519,16 @@ modis_specs <- function(
   , drymask   = NULL){
 
   # Retrieve water, nowater and dryland masks
-  water   <- masks_polygons[masks_polygons$Description == "water", ]
-  dryland <- masks_polygons[masks_polygons$Description == "dryland", ]
+  water   <- vect(masks_polygons[masks_polygons$Description == "water", ])
+  dryland <- vect(masks_polygons[masks_polygons$Description == "dryland", ])
 
   # In case a watermask or drymask is provided, use them
   if (!is.null(watermask)){water <- watermask}
   if (!is.null(drymask)){dryland <- drymask}
 
   # Extract the spectral values of band 7 below the dryland and water polygons
-  # To speed up the extraction we coerce the modis band to a velox raster
-  band7 <- velox(x)
-
-  # Extract the values and coerce the output to a dataframe
-  wat <- band7$extract(water) %>%
-    do.call(rbind, .) %>%
-    as.data.frame()
-  dry <- band7$extract(dryland) %>%
-    do.call(rbind, .) %>%
-    as.data.frame()
+  wat <- mask(x, water) %>% as.data.frame() %>% na.omit()
+  dry <- mask(x, dryland) %>% as.data.frame() %>% na.omit()
 
   # Prepare a column that indicates the land cover class
   wat$Class <- "Water"
@@ -537,7 +539,12 @@ modis_specs <- function(
   specs <- na.omit(specs)
 
   # Plot the two densities for the spectral signatures of each value
-  ggplot(specs, aes(V1, fill = Class)) + geom_density(alpha = 0.2)
+  ggplot(specs, aes(Band_7, fill = Class)) + geom_density(alpha = 0.2) +
+    theme_minimal() +
+    scale_fill_manual(values = c("darkgreen", "cornflowerblue")) +
+    xlab("Reflectance") +
+    ylab("Denstiy") +
+    ggtitle("MODIS Terra Surface Reflectance")
 }
 
 #' Calculate Reflectance Percentiles
@@ -575,31 +582,23 @@ modis_specs <- function(
 modis_percentiles <- function(
     x         = NULL
   , watermask = NULL
-  , drymask   = NULL){
+  , drymask   = NULL) {
 
   # Retrieve water, nowater and dryland masks
-  water   <- masks_polygons[masks_polygons$Description == "water", ]
-  dryland <- masks_polygons[masks_polygons$Description == "dryland", ]
+  water   <- vect(masks_polygons[masks_polygons$Description == "water", ])
+  dryland <- vect(masks_polygons[masks_polygons$Description == "dryland", ])
 
   # In case a watermask or drymask is provided, use them
   if (!is.null(watermask)){water <- watermask}
   if (!is.null(drymask)){dryland <- drymask}
 
-  # Extract the spectral values of band 7 below the dryland and water polygons.
-  # To speed up the extraction we coerce the modis band to a velox raster
-  band7 <- velox(x)
-
-  # Extract the values and coerce the output to a dataframe
-  wat <- band7$extract(water) %>%
-    do.call(rbind, .) %>%
-    as.data.frame()
-  dry <- band7$extract(dryland) %>%
-    do.call(rbind, .) %>%
-    as.data.frame()
+  # Extract the spectral values of band 7 below the dryland and water polygons
+  wat <- mask(x, water) %>% as.vector() %>% na.omit()
+  dry <- mask(x, dryland) %>% as.vector() %>% na.omit()
 
   # Calculate the percentiles
-  wat_perc <- quantile(wat[, 1], probs = c(0.01, 0.99), na.rm = TRUE)
-  dry_perc <- quantile(dry[, 1], probs = c(0.01, 0.99), na.rm = TRUE)
+  wat_perc <- quantile(wat, probs = c(0.01, 0.99), na.rm = TRUE)
+  dry_perc <- quantile(dry, probs = c(0.01, 0.99), na.rm = TRUE)
 
   # Prepare a dataframe
   percs <- data.frame(WaterPercentiles = wat_perc, DrylandPercentiles = dry_perc)
@@ -771,16 +770,16 @@ modis_percentiles <- function(
 #   }
 #   return(results)
 # }
-
-# Helper function to retrieve the extent of a spatial object
-.getExtent <- function(aoi){
-  if (!is.vector(aoi)){
-    b <- as.vector(bbox(aoi))
-  } else {
-    b <- as.vector(t(matrix(aoi, ncol = 2)))
-  }
-  paste(b, collapse = ",")
-}
+#
+# # Helper function to retrieve the extent of a spatial object
+# .getExtent <- function(aoi){
+#   if (!is.vector(aoi)){
+#     b <- as.vector(bbox(aoi))
+#   } else {
+#     b <- as.vector(t(matrix(aoi, ncol = 2)))
+#   }
+#   paste(b, collapse = ",")
+# }
 
 # Function to extract date from modis filename
 .dateFromYearDoy <- function(x){
