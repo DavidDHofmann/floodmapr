@@ -10,41 +10,16 @@ classification algorithm is based on the publication of Wolski et al.,
 2017 and currently only applicable for the extent of the Okavango Delta
 (see [Okavango Research
 Institute](http://www.okavangodata.ub.bw/ori/monitoring/flood_maps/#)).
-<!--
+
 ## Installation
-To install `floodmapr` you need to have the package `devtools` installed. You
-can simply do:
+
+To install `floodmapr` you need to have the package `devtools`
+installed. You can simply do:
 
 ``` r
 library(devtools)
 install_github("DavidDHofmann/floodmapr")
 ```
-
-Note that the `floodmapr` package also depends on the r-package `velox`, which
-is not available from CRAN anymore. To install `velox`, you have three options:
-
-#### Option 1
-You can directly install `velox` from the CRAN archive using:
-
-``` r
-library(devtools)
-install_version("velox", version = "0.2.0", repos = "http://cran.r-project.org")
-```
-
-#### Option 2
-Alternatively, you can install `velox` from github.
-
-``` r
-library(devtools)
-install_github("hunzikp/velox")
-```
-
-#### Option 3
-Finally, you can download the archived zip and install the package from your
-terminal (not from within R). -->
-
-    wget https://cran.r-project.org/src/contrib/Archive/velox/velox_0.2.0.tar.gz
-    R CMD INSTALL velox_0.2.0.tar.gz
 
 ## Workflow
 
