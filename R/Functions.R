@@ -537,6 +537,7 @@ modis_specs <- function(
   # Bind the extracted values together
   specs <- rbind(wat, dry)
   specs <- na.omit(specs)
+  names(specs)[1] <- "Band_7"
 
   # Plot the two densities for the spectral signatures of each value
   ggplot(specs, aes(Band_7, fill = Class)) + geom_density(alpha = 0.2) +
