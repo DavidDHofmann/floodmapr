@@ -312,8 +312,8 @@ modis_classify <- function(
   rcl <- data.frame(from = c(NA, 0, mu), to = c(NA, mu, 1), new = c(2, 1, 0))
   pred <- classify(x, rcl)
 
-  # Get rid of areas that are always dry
-  pred <- mask(pred, nowater, updatevalue = 0, inverse = TRUE)
+  # # Get rid of areas that are always dry
+  # pred <- mask(pred, nowater, updatevalue = 0, inverse = TRUE)
 
   # Write the raster to a temporary file
   pred <- terra::writeRaster(pred, tempfile(fileext = ".tif"))
@@ -365,7 +365,7 @@ modis_bimodal <- function(
   , watermask         = NULL
   , drymask           = NULL) {
 
-  # Retrieve water, nowater and dryland masks
+  # Retrieve water and dryland masks
   water   <- vect(masks_polygons[masks_polygons$Description == "water", ])
   dryland <- vect(masks_polygons[masks_polygons$Description == "dryland", ])
 
@@ -518,7 +518,7 @@ modis_specs <- function(
   , watermask = NULL
   , drymask   = NULL){
 
-  # Retrieve water, nowater and dryland masks
+  # Retrieve water and dryland masks
   water   <- vect(masks_polygons[masks_polygons$Description == "water", ])
   dryland <- vect(masks_polygons[masks_polygons$Description == "dryland", ])
 
@@ -585,7 +585,7 @@ modis_percentiles <- function(
   , watermask = NULL
   , drymask   = NULL) {
 
-  # Retrieve water, nowater and dryland masks
+  # Retrieve water and dryland masks
   water   <- vect(masks_polygons[masks_polygons$Description == "water", ])
   dryland <- vect(masks_polygons[masks_polygons$Description == "dryland", ])
 
