@@ -1,10 +1,17 @@
 ---
-output:
-  github_document:
-  html_preview: false
-editor_options:
-  chunk_output_type: console
+output: github_document
 ---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
 
 # floodmapr <img src="man/figures/floodmapr.png" align="right" width="150" height="150"/>
 `floodmapr` is an R-package that allows you to download and classify  [MODIS
@@ -16,12 +23,12 @@ currently only applicable for the extent of the Okavango Delta (see [Okavango
 Research Institute](http://www.okavangodata.ub.bw/ori/monitoring/flood_maps/#)).
 
 ## Installation
-To install `floodmapr` you need to have the package `devtools` installed. You
-can simply do:
+You can install the development version of floodmapr from
+[GitHub](https://github.com/) with:
 
 ``` r
-library(devtools)
-install_github("DavidDHofmann/floodmapr")
+# install.packages("devtools")
+devtools::install_github("DavidDHofmann/floodmapr")
 ```
 
 ## Workflow
@@ -67,16 +74,20 @@ algorithm is able to learn about potential long-term changes in the system.
 ## Example
 Here is a complete example of the above outlined workflow
 
-``` r
+```{r, echo = F}
+load("/home/david/ownCloud/Dokumente/Bibliothek/Wissen/R-Scripts/EarthDataLogin.rds")
+```
+
+```{r, echo = T, warning = F, message = F}
 library(floodmapr)
 
-# Download modis data
+# Download modis data (you need to provide your own username and password)
 downloaded <- modis_download(
-    dates     = c("2020-01-01", "2020-01-02")
-  , outdir    = getwd()
-  , tmpdir    = getwd()
-  , username  = "username"
-  , password  = "password"
+    dates     = c("2017-08-21", "2017-08-22")
+  , outdir    = tempdir()
+  , tmpdir    = tempdir()
+  , username  = username
+  , password  = password
   , overwrite = F
 )
 
@@ -89,14 +100,14 @@ modis_bimodal(loaded)
 modis_percentiles(loaded)
 
 # Classify data
-classified <- modis_classify(loaded, ignore.bimodality = T)
+classified <- modis_classify(loaded)
 
-# Visualize classified image
-plot(classified)
+# Visualize classified image (0 = dryland, 1 = water, 2 = clouds)
+plot(classified, col = c("white", "cornflowerblue", "gray"))
 ```
 
 ## References
 *Wolski, Piotr, Mike Murray-Hudson, Kgalalelo Thito, und Lin Cassidy. „Keeping It
 Simple: Monitoring Flood Extent in Large Data-Poor Wetlands Using MODIS SWIR
 Data“. International Journal of Applied Earth Observation and Geoinformation 57
-(Mai 2017): 224–34. https://doi.org/10.1016/j.jag.2017.01.005.*
+(May 2017): 224–34. https://doi.org/10.1016/j.jag.2017.01.005.*
