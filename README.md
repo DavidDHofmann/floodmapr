@@ -120,7 +120,7 @@ modis_percentiles(loaded)
 classified <- modis_classify(loaded)
 
 # Visualize classified image (0 = dryland, 1 = water, 2 = clouds)
-plot(classified, col = c("white", "cornflowerblue", "gray"))
+plot(classified)
 ```
 
 <img src="man/figures/README-unnamed-chunk-3-2.png" width="100%" />
