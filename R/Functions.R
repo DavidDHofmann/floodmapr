@@ -8,7 +8,7 @@
 #' @importFrom lubridate years ymd
 #' @importFrom rgeos gBuffer
 #' @importFrom RGISTools modSearch
-#' @importFrom gdalUtils get_subdatasets gdal_translate gdalbuildvrt
+#' @importFrom gdalUtils gdal_translate gdalbuildvrt
 NULL
 
 ################################################################################
@@ -33,6 +33,8 @@ NULL
 #' @param password character. Password of your EarthData account
 #' @param overwrite logical. If such a file already exists in the path, should
 #' it be overwritten?
+#' @param overwrite_temp logical. If the temporary HDF file already exists in
+#' the tmpdir, should it be overwritten?
 #' @return Character vector of filename pointing to the downloaded files
 #' @examples
 #' \dontrun{
@@ -50,13 +52,15 @@ NULL
 #' files
 #'}
 modis_download <- function(
-    dates     = NULL
-  , outdir    = getwd()
-  , tmpdir    = tempdir()
-  , username  = NULL
-  , password  = NULL
-  , messages  = T
-  , overwrite = F) {
+    dates          = NULL
+  , outdir         = getwd()
+  , tmpdir         = tempdir()
+  , username       = NULL
+  , password       = NULL
+  , messages       = T
+  , overwrite      = F
+  , overwrite_temp = F
+  ) {
 
   # library(terra)
   # library(gdalUtils)
@@ -96,7 +100,7 @@ modis_download <- function(
   # Identify all files that we need to download. For each date there should only
   # be two (two tiles). Since the search also returns files slightly before or
   # after the desired date, we need to subset.
-  todownload <- lapply(seq_along(dates), function(x){
+  todownload <- lapply(seq_along(dates), function(x) {
     files <- .modisFiles(
         product     = "MCD43A4"
       , version     = "006"
@@ -110,30 +114,40 @@ modis_download <- function(
     return(files)
   }) %>% do.call(rbind, .)
 
+  # Check if some of the files already exist
+  files <- file.path(tmpdir, basename(todownload$URL))
+
   # Download all selected files to a temporary directory
   downloaded <- rep(NA, nrow(todownload))
-  for (i in 1:nrow(todownload)){
+  for (i in 1:nrow(todownload)) {
     if (messages) {
       cat("Downloading tiles:", i, "out of", nrow(todownload), "\n")
     }
-    downloaded[i] <- .modisDownload(
-        dataframe = todownload[i, ]
-      , path      = tmpdir
-      , username  = username
-      , password  = password
-      , overwrite = overwrite
-    )
+    if (file.exists(files[i]) & !overwrite_temp) {
+      if (messages) {
+        cat("File", files[i], "exists and is not overwritten\n")
+      }
+      downloaded[i] <- files[i]
+    } else {
+      downloaded[i] <- .modisDownload(
+          dataframe = todownload[i, ]
+        , path      = tmpdir
+        , username  = username
+        , password  = password
+        , overwrite = T
+      )
+    }
   }
 
   # Extract tiffs
   if (messages) {
     cat("All tiles downloaded. Extracting tiffs from hdf files now...\n")
   }
-  extracted <- lapply(1:length(downloaded), function(x){
+  extracted <- lapply(1:length(downloaded), function(x) {
     .modisExtract(
         filepath  = downloaded[x]
       , outdir    = tmpdir
-      , overwrite = overwrite
+      , overwrite = overwrite_temp
       , removeHDF = F
     )
   }) %>% do.call(c, .)
@@ -148,7 +162,7 @@ modis_download <- function(
     , Date = modis_date(basename(extracted)) %>% as.matrix() %>% as.vector()
   ) %>% mutate_all(., as.character)
   dat <- dat %>% group_by(Date) %>% nest()
-  stitched <- lapply(1:nrow(dat), function(x){
+  stitched <- lapply(1:nrow(dat), function(x) {
     suppressWarnings(
       .modisStitch(
           filepaths = dat$data[[x]]$Path
@@ -648,6 +662,7 @@ modis_percentiles <- function(
   return(results)
 }
 
+# Helper function to download a single MODIS file
 .modisDownload <- function(dataframe, path = getwd(), username, password, overwrite = F) {
 
   # Extract url
@@ -660,10 +675,18 @@ modis_percentiles <- function(
   # overwrite it anyways
   if ((!file.exists(filename)) | overwrite){
 
+      # # Download file
+      # download.file(
+      #     url      = url
+      #   , destfile = filename
+      #   , method   = "wget"
+      #   , extra    = paste("--user", username, "--password", password)
+      # )
+
       # Download file
       file <- httr::GET(
           url
-        , httr::authenticate(username, password)
+        , httr::authenticate(username, password, type = "any")
         , httr::progress()
         , httr::write_disk(filename, overwrite = overwrite)
       )
@@ -673,115 +696,6 @@ modis_percentiles <- function(
   return(filename)
 }
 
-# # Helper function to download a single MODIS file
-# .modisDownload <- function(
-#     dataframe = NULL
-#   , path      = getwd()
-#   , username  = NULL
-#   , password  = NULL
-#   , overwrite = F){
-#
-#   # Extract url
-#   url <- dataframe$`Online Access URLs`
-#
-#   # Specify output directory
-#   filename <- file.path(path, basename(url))
-#
-#   # We only download the file if it doesn't exist yet, or if we want to
-#   # overwrite it anyways
-#   if ((!file.exists(filename)) | overwrite){
-#
-#       # Download file
-#       file <- httr::GET(
-#           url
-#         , httr::authenticate(username, password)
-#         , httr::progress()
-#         , httr::write_disk(filename, overwrite = overwrite)
-#       )
-#     } else {
-#       warning(paste0("file ", filename, " already exists, skipping download"))
-#   }
-#   return(filename)
-# }
-#
-# # Helper function to prepare urls using query params
-# .getSearchResults <- function(
-#     url     = NULL
-#   , limit   = NULL
-#   , args    = NULL){
-#
-#   # We start with the first page
-#   page_num <- 1
-#
-#   # Initiate an empty results vector
-#   results <- NULL
-#
-#   # We continue to read data until the predefined limit is reached
-#   while (length(results) < limit){
-#
-#     # Read data using api
-#     response <- httr::GET(
-#         url   = url
-#       , query = c(args, page_num = page_num)
-#       , httr::add_headers(Accept = "text/csv")
-#     )
-#
-#     # Check for a valid response
-#     httr::stop_for_status(response)
-#
-#     # Make sure the response is of format "text/csv"
-#     if (httr::http_type(response) == "text/csv"){
-#
-#       # Read content as dataframe
-#       data <- utils::read.csv(
-#           text             = httr::content(response, as = "text")
-#         , check.names      = FALSE
-#         , stringsAsFactors = FALSE
-#       )
-#
-#       # Verify that the URL column is not empty
-#       catcher <- tryCatch(
-#           urls <- data[["Online Access URLs"]]
-#         , error = function(e){e}
-#       )
-#
-#       # Make sure there is no error
-#       if (!inherits(catcher, "error")){
-#         if (length(urls) == 0){
-#           break
-#         }
-#
-#         # Append the full table of results
-#         results <- rbind(results, data)
-#         page_num <- page_num + 1
-#
-#       # In case there is an error
-#       } else {
-#
-#         # We break the loop
-#         break
-#       }
-#
-#     # If the response is not of format "text/csv"
-#     } else {
-#
-#       # We break the loop
-#       break
-#     }
-#   }
-#   return(results)
-# }
-#
-# # Helper function to retrieve the extent of a spatial object
-# .getExtent <- function(aoi){
-#   if (!is.vector(aoi)){
-#     b <- as.vector(bbox(aoi))
-#   } else {
-#     b <- as.vector(t(matrix(aoi, ncol = 2)))
-#   }
-#   paste(b, collapse = ",")
-# }
-
 # Function to extract date from modis filename
 .dateFromYearDoy <- function(x){
   year  <- as.integer(substr(x, 1, 4))
@@ -789,146 +703,37 @@ modis_percentiles <- function(
   return(as.Date(doy, origin = paste(year - 1, "-12-31", sep = '')))
 }
 
-# # Function to show available products. This function allows you to determine
-# # which MODIS products are available for download.
-# .modisProducts <- function(product){
-#
-#   # Retrieve available products from cmr
-#   prods <- read.csv("https://cmr.earthdata.nasa.gov/search/humanizers/report")
-#
-#   # Remove undesired columns
-#   prods$original_value <- NULL
-#   prods$humanized_value <- NULL
-#
-#   # Grep desired product
-#   if (!missing(product)){
-#
-#     # If multiple products, paste them together into a single grep call
-#     if (length(product) > 1){
-#       product <- paste0(product, collapse = "|")
-#     }
-#
-#     # Subset
-#     prods <- prods[grep(product, prods$short_name), ]
-#   }
-#
-#   # Coerce everything to character
-#   prods <- mutate_all(prods, as.character)
-#
-#   # Return unique entries
-#   return(unique(prods))
-# }
-#
-# # Function to retrieve available files from a modis product. This function
-# # allows you to find and select files that you want to download.
-# .modisFiles <-  function(
-#     product     = "MCD43A4"
-#   , version     = "006"
-#   , start_date  = NULL
-#   , end_date    = NULL
-#   , aoi         = NULL
-#   , limit       = 100){
-#
-#   # Make sure the product exists
-#   dd <- .modisProducts(product)
-#   dd <- dd[dd$short_name == product & dd$version == version, ]
-#
-#   # In case there is no such data, interrupt. In case there are multiple sources
-#   # of data, continue and use first
-#   if (nrow(dd) < 1){
-#     stop("Requested product not available")
-#   } else if (nrow(dd) > 1){
-#     warning("Multiple sources available, using first")
-#     print(dd)
-#     dd <- dd[1, ]
-#   }
-#
-#   # Specify date suffix
-#   datesuffix <- "T00:00:00Z"
-#
-#   # Convert dates to proper dates
-#   start_date  <- as.Date(start_date)
-#   end_date    <- as.Date(end_date)
-#   temporal    <- paste0(start_date, datesuffix, ",", end_date, datesuffix)
-#
-#   # Put URLs together
-#   cmr_host <- "https://cmr.earthdata.nasa.gov"
-#   url <- file.path(cmr_host, "search/granules")
-#
-#   # Retrieve extent
-#   ext <- .getExtent(aoi)
-#
-#   # Put query parameters together
-#   params <- list(
-#       short_name    = product
-#     ,	temporal      = temporal
-#     , downloadable  = "true"
-#     , bounding_box  = ext
-#   )
-#
-#   # Run query
-#   results <- .getSearchResults(url = url, limit = limit, args = params)
-#
-#   # Identify modis dates
-#   results <- cbind(results, modis_date(results$`Producer Granule ID`))
-#
-#   # Return the results
-#   return(results)
-# }
-
 # Function to convert the downloaded hdf files to proper .tif rasters
 .modisExtract <- function(
     filepath  = NULL
   , outdir    = dirname(filepath)
   , removeHDF = F
-  , overwrite = F){
+  , overwrite = F ) {
 
-  # Extract the date from the modis file
-  date <- as.vector(as.matrix(modis_date(filepath)))
+  # Load the layers
+  bands <- sds(filepath)
 
-  # Get all bands
-  bands <- get_subdatasets(filepath)
+  # Keep only the bands of interest
+  bands <- bands[[grep("Nadir.*Band[1-7]", names(bands))]]
 
-  # Select the bands we want to keep
-  bands <- bands[grep("Nadir.*Band[1-7]", bands)]
-
-  # Create new filenames under which the bands will be stored
-  names <- paste0(dirname(filepath), "/", basename(bands), ".tif")
-
-  # Create output filename of the merged file
-  filename <- paste0(outdir, "/", basename(filepath), ".tif")
-
-  # Make sure the file does not already exist
-  if (file.exists(filename) & !overwrite){
-    warning(paste0("file ", filename, " already exists"))
-    return(filename)
-  }
-
-  # Convert the selected bands to tifs using the new names
-  for (j in 1:length(bands)){
-    gdal_translate(bands[j], dst_dataset = names[j])
-  }
-
-  # Stack them
-  r <- rast(names)
+  # Convert to terra raster
+  bands <- rast(bands)
 
   # Assign date as band names
-  names(r) <- paste0("Band_", 1:7)
+  names(bands) <- paste0("Band_", 1:7)
 
-  # Store the stacked file
-  terra::writeRaster(
-      r
-    , filename  = filename
-    , filetype  = "GTiff"
-    , overwrite = TRUE
-    , gdal      = c("INTERLEAVE = BAND", "COMPRESS = LZW")
-  )
+  # Create output filename of the new file
+  filename <- paste0(outdir, "/", basename(filepath), ".tif")
 
-  # Remove the seperate bands
-  file.remove(names)
+  # Make sure the file does not already exist, then save
+  if (file.exists(filename) & !overwrite) {
+    cat(paste0("file", filename, "already exists and will not be overwritten...\n"))
+  } else {
+    terra::writeRaster(bands, filename  = filename, overwrite = TRUE)
+  }
 
   # In case the original HDF should be removed, do so
-  if (removeHDF){
+  if (removeHDF) {
     file.remove(filepath)
   }
 
@@ -941,26 +746,26 @@ modis_percentiles <- function(
     filepaths = NULL
   , outdir    = getwd()
   , outname   = NULL
-  , overwrite = F){
+  , overwrite = F) {
 
   # Create output name
   filename <- paste0(outdir, "/", outname)
   if (file.exists(filename) & !overwrite){
-    warning(paste0("file ", filename, " already exists"))
-    return(filename)
+    cat("file", filename, "already exists and is not overwritten...\n")
+  } else {
+
+    # Create a virtual raster
+    name <- tempfile(fileext = ".vrt")
+    gdalbuildvrt(gdalfile = filepaths, output.vrt = name)
+
+    # Coerce virtual raster to a true raster
+    gdal_translate(
+        src_dataset   = name
+      , dst_dataset   = filename
+      , output_Raster = TRUE
+      , options       = c("BIGTIFFS=YES")
+    )
   }
-
-  # Create a virtual raster
-  name <- tempfile(fileext = ".vrt")
-  gdalbuildvrt(gdalfile = filepaths, output.vrt = name)
-
-  # Coerce virtual raster to a true raster
-  gdal_translate(
-      src_dataset   = name
-    , dst_dataset   = filename
-    , output_Raster = TRUE
-    , options       = c("BIGTIFFS=YES")
-  )
 
   # Remove aux files
   remove <- paste0(filename, ".aux.xml")

@@ -11,7 +11,8 @@ modis_download(
   username = NULL,
   password = NULL,
   messages = T,
-  overwrite = F
+  overwrite = F,
+  overwrite_temp = F
 )
 }
 \arguments{
@@ -27,6 +28,9 @@ should be stored to. This data will be used in \code{modis_classify()}}
 
 \item{overwrite}{logical. If such a file already exists in the path, should
 it be overwritten?}
+
+\item{overwrite_temp}{logical. If the temporary HDF file already exists in
+the tmpdir, should it be overwritten?}
 
 \item{tempdir}{character. Directory were intermediary files should be stored
 to (e.g. hdf files). By default these are stored to \code{tempdir()}.
