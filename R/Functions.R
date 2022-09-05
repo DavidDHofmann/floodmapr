@@ -75,6 +75,7 @@ modis_download <- function(
   # username <- "DoDx9"
   # password <- "EarthData99"
   # overwrite <- T
+  # overwrite_temp <- T
   # messages <- T
   # load("/home/david/ownCloud/University/15. PhD/General/R-Packages/floodmapr/R/sysdata.rda")
 
@@ -708,7 +709,7 @@ modis_percentiles <- function(
     filepath  = NULL
   , outdir    = dirname(filepath)
   , removeHDF = F
-  , overwrite = F ) {
+  , overwrite = F) {
 
   # Load the layers
   bands <- sds(filepath)
@@ -723,7 +724,7 @@ modis_percentiles <- function(
   names(bands) <- paste0("Band_", 1:7)
 
   # Create output filename of the new file
-  filename <- paste0(outdir, "/", basename(filepath), ".tif")
+  filename <- paste0(file.path(outdir, basename(filepath)), ".tif")
 
   # Make sure the file does not already exist, then save
   if (file.exists(filename) & !overwrite) {
@@ -749,7 +750,7 @@ modis_percentiles <- function(
   , overwrite = F) {
 
   # Create output name
-  filename <- paste0(outdir, "/", outname)
+  filename <- file.path(outdir, outname)
   if (file.exists(filename) & !overwrite){
     cat("file", filename, "already exists and is not overwritten...\n")
   } else {
