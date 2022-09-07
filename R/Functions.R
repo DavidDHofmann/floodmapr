@@ -233,7 +233,7 @@ modis_download <- function(
 modis_load <- function(filepath = NULL) {
 
   # Make sure only one file is given
-  if (length(filepath) > 1){
+  if (length(filepath) > 1) {
     stop("Can't load multiple files at once. Provide a single file only")
   }
 
@@ -674,7 +674,7 @@ modis_percentiles <- function(
 
   # We only download the file if it doesn't exist yet, or if we want to
   # overwrite it anyways
-  if ((!file.exists(filename)) | overwrite){
+  if ((!file.exists(filename)) | overwrite) {
 
       # # Download file
       # download.file(
@@ -719,6 +719,9 @@ modis_percentiles <- function(
 
   # Convert to terra raster
   bands <- rast(bands)
+
+  # Assign correct crs
+  crs(bands) <- "+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +R=6371007.181 +units=m +no_defs"
 
   # Assign date as band names
   names(bands) <- paste0("Band_", 1:7)
@@ -765,6 +768,8 @@ modis_percentiles <- function(
       , dst_dataset   = filename
       , output_Raster = TRUE
       , options       = c("BIGTIFFS=YES")
+      , a_srs         = "+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +R=6371007.181 +units=m +no_defs"
+
     )
   }
 
