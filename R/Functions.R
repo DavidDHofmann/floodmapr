@@ -8,7 +8,6 @@
 #' @importFrom lubridate years ymd
 #' @importFrom rgeos gBuffer
 #' @importFrom RGISTools modSearch
-#' @importFrom gdalUtils gdal_translate gdalbuildvrt
 NULL
 
 ################################################################################
@@ -62,22 +61,22 @@ modis_download <- function(
   , overwrite_temp = F
   ) {
 
-  # library(terra)
-  # library(gdalUtils)
-  # library(tidyverse)
-  # library(rgdal)
-  # library(rgeos)
-  # library(lubridate)
-  # library(RGISTools)
-  # dates <- c("2020-01-01")
-  # outdir <- "/home/david/Schreibtisch"
-  # tmpdir <- "/home/david/Schreibtisch"
-  # username <- "DoDx9"
-  # password <- "EarthData99"
-  # overwrite <- T
-  # overwrite_temp <- T
-  # messages <- T
-  # load("/home/david/ownCloud/University/15. PhD/General/R-Packages/floodmapr/R/sysdata.rda")
+#  library(terra)
+#  library(tidyverse)
+#  library(rgdal)
+#  library(rgeos)
+#  library(lubridate)
+#  library(RGISTools)
+#  dates <- c("2020-01-01")
+#  setwd("C:/Users/david/Desktop")
+#  outdir <- "C:/Users/david/Desktop"
+#  tmpdir <- "C:/Users/david/Desktop"
+#  username <- "DoDx9"
+#  password <- "EarthData99"
+#  overwrite <- T
+#  overwrite_temp <- T
+#  messages <- T
+#  load("sysdata.rda")
 
   # Error messsages
   if (missing(dates)){stop("Provide dates")}
@@ -192,9 +191,9 @@ modis_download <- function(
     r <- terra::writeRaster(
         r
       , filename  = stitched[x]
-      , filetype  = "GTiff"
+      # , filetype  = "GTiff"
       , overwrite = TRUE
-      , gdal      = c("INTERLEAVE = BAND", "COMPRESS = LZW")
+      # , gdal      = c("INTERLEAVE = BAND", "COMPRESS = LZW")
     )
     return(stitched[x])
   }) %>% do.call(c, .)
@@ -758,25 +757,28 @@ modis_percentiles <- function(
     cat("file", filename, "already exists and is not overwritten...\n")
   } else {
 
-    # Create a virtual raster
-    name <- tempfile(fileext = ".vrt")
-    gdalbuildvrt(gdalfile = filepaths, output.vrt = name)
+    files <- lapply(filepaths, rast)
+    files <- sprc(files)
+    files <- mosaic(files, filename = filename)
 
-    # Coerce virtual raster to a true raster
-    gdal_translate(
-        src_dataset   = name
-      , dst_dataset   = filename
-      , output_Raster = TRUE
-      , options       = c("BIGTIFFS=YES")
-      , a_srs         = "+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +R=6371007.181 +units=m +no_defs"
-
-    )
+    # # Create a virtual raster
+    # name <- tempfile(fileext = ".vrt")
+    # gdalbuildvrt(gdalfile = filepaths, output.vrt = name)
+    #
+    # # Coerce virtual raster to a true raster
+    # gdal_translate(
+    #     src_dataset   = name
+    #   , dst_dataset   = filename
+    #   , output_Raster = TRUE
+    #   , options       = c("BIGTIFFS=YES")
+    #   , a_srs         = "+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +R=6371007.181 +units=m +no_defs"
+    # )
   }
 
-  # Remove aux files
-  remove <- paste0(filename, ".aux.xml")
-  file.remove(remove)
-
+  # # Remove aux files
+  # remove <- paste0(filename, ".aux.xml")
+  # file.remove(remove)
+  #
   # Return the filepath to the stitched file
   return(filename)
 }
