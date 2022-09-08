@@ -759,7 +759,7 @@ modis_percentiles <- function(
 
     files <- lapply(filepaths, rast)
     files <- sprc(files)
-    files <- mosaic(files, filename = filename)
+    files <- mosaic(files, filename = filename, overwrite = T)
 
     # # Create a virtual raster
     # name <- tempfile(fileext = ".vrt")
