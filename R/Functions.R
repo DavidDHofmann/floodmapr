@@ -8,6 +8,7 @@
 #' @importFrom lubridate years ymd
 #' @importFrom rgeos gBuffer
 #' @importFrom RGISTools modSearch
+#' @importFrom gdalUtils get_subdatasets
 NULL
 
 ################################################################################
@@ -61,22 +62,21 @@ modis_download <- function(
   , overwrite_temp = F
   ) {
 
-#  library(terra)
-#  library(tidyverse)
-#  library(rgdal)
-#  library(rgeos)
-#  library(lubridate)
-#  library(RGISTools)
-#  dates <- c("2020-01-01")
-#  setwd("C:/Users/david/Desktop")
-#  outdir <- "C:/Users/david/Desktop"
-#  tmpdir <- "C:/Users/david/Desktop"
-#  username <- "DoDx9"
-#  password <- "EarthData99"
-#  overwrite <- T
-#  overwrite_temp <- T
-#  messages <- T
-#  load("sysdata.rda")
+  # library(terra)
+  # library(tidyverse)
+  # library(rgdal)
+  # library(rgeos)
+  # library(lubridate)
+  # library(RGISTools)
+  # dates <- c("2020-01-01")
+  # setwd("/home/david/Schreibtisch")
+  # load("/home/david/ownCloud/Dokumente/Bibliothek/Wissen/R-Scripts/EarthDataLogin.rds")
+  # outdir <- getwd()
+  # tmpdir <- getwd()
+  # overwrite <- T
+  # overwrite_temp <- T
+  # messages <- T
+  # load("/home/david/ownCloud/University/15. PhD/General/R-Packages/floodmapr/R/sysdata.rda")
 
   # Error messsages
   if (missing(dates)){stop("Provide dates")}
@@ -526,7 +526,7 @@ modis_watermask <- function(
 #'
 #' # Check spectral reflectances
 #' modis_specs(modis)
-#'}
+#' }
 modis_specs <- function(
     x         = NULL
   , watermask = NULL
@@ -710,8 +710,15 @@ modis_percentiles <- function(
   , removeHDF = F
   , overwrite = F) {
 
+  # filepath <- downloaded[1]
+
   # Load the layers
   bands <- sds(filepath)
+
+  # Currently, terra does not read the layernames correctly
+  # print(names(bands))
+  # print(bandnames)
+  names(bands) <- gdalUtils::get_subdatasets(filepath)
 
   # Keep only the bands of interest
   bands <- bands[[grep("Nadir.*Band[1-7]", names(bands))]]
