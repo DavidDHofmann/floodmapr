@@ -1,14 +1,11 @@
 ################################################################################
 #### Load Dependencies
 ################################################################################
-#' @import raster terra ggplot2 sp
+#' @import terra ggplot2 sp
 #' @importFrom dplyr group_by mutate_all
 #' @importFrom magrittr %>%
 #' @importFrom tidyr nest
 #' @importFrom lubridate years ymd
-#' @importFrom rgeos gBuffer
-#' @importFrom RGISTools modSearch
-#' @importFrom gdalUtils get_subdatasets
 NULL
 
 ################################################################################
@@ -64,10 +61,7 @@ modis_download <- function(
 
   # library(terra)
   # library(tidyverse)
-  # library(rgdal)
-  # library(rgeos)
   # library(lubridate)
-  # library(RGISTools)
   # dates <- c("2020-01-01")
   # setwd("/home/david/Schreibtisch")
   # load("/home/david/ownCloud/Dokumente/Bibliothek/Wissen/R-Scripts/EarthDataLogin.rds")
@@ -79,11 +73,11 @@ modis_download <- function(
   # load("/home/david/ownCloud/University/15. PhD/General/R-Packages/floodmapr/R/sysdata.rda")
 
   # Error messsages
-  if (missing(dates)){stop("Provide dates")}
-  if (missing(username)){stop("Provide username to access earth data")}
-  if (missing(password)){stop("Provide password to access earth data")}
-  if (!dir.exists(outdir)){stop("Specified output directory does not exist")}
-  if (!dir.exists(tmpdir)){stop("Specified temporary directory does not exist")}
+  if (missing(dates)) {stop("Provide dates")}
+  if (missing(username)) {stop("Provide username to access earth data")}
+  if (missing(password)) {stop("Provide password to access earth data")}
+  if (!dir.exists(outdir)) {stop("Specified output directory does not exist")}
+  if (!dir.exists(tmpdir)) {stop("Specified temporary directory does not exist")}
 
   # Parse dates
   dates <- ymd(dates)
@@ -92,7 +86,7 @@ modis_download <- function(
   aoi <- masks_polygons[masks_polygons$Description == "aoi", ]
 
   # Make sure there are no duplicates
-  if (length(dates) != length(unique(dates))){
+  if (length(dates) != length(unique(dates))) {
     warning("Some dates are duplicated. Using only unique dates")
     dates <- unique(dates)
   }
@@ -103,7 +97,7 @@ modis_download <- function(
   todownload <- lapply(seq_along(dates), function(x) {
     files <- .modisFiles(
         product     = "MCD43A4"
-      , version     = "006"
+      , version     = "061"
       , start_date  = dates[x]
       , end_date    = dates[x]
       , aoi         = aoi
@@ -143,7 +137,7 @@ modis_download <- function(
   if (messages) {
     cat("All tiles downloaded. Extracting tiffs from hdf files now...\n")
   }
-  extracted <- lapply(1:length(downloaded), function(x) {
+  extracted <- lapply(seq_len(length(downloaded)), function(x) {
     .modisExtract(
         filepath  = downloaded[x]
       , outdir    = tmpdir
@@ -191,9 +185,7 @@ modis_download <- function(
     r <- terra::writeRaster(
         r
       , filename  = stitched[x]
-      # , filetype  = "GTiff"
       , overwrite = TRUE
-      # , gdal      = c("INTERLEAVE = BAND", "COMPRESS = LZW")
     )
     return(stitched[x])
   }) %>% do.call(c, .)
@@ -330,7 +322,7 @@ modis_classify <- function(
   pred <- mask(pred, nowater, updatevalue = 0, inverse = TRUE)
 
   # Write the raster to a temporary file
-  pred <- terra::writeRaster(pred, tempfile(fileext = ".tif"))
+  pred <- writeRaster(pred, tempfile(fileext = ".tif"))
 
   # Return the classified image
   return(pred)
@@ -404,8 +396,8 @@ modis_bimodal <- function(
 #' be extracted
 #' @return character. Dates as derived from the MODIS filename
 modis_date <- function(filename = NULL) {
-  ff <- basename(filename)
-  dot <- sapply(strsplit(ff, "\\."), '[', 2)
+  ff    <- basename(filename)
+  dot   <- sapply(strsplit(ff, "\\."), '[', 2)
   dates <- gsub("[aA-zZ]", "", dot)
   dates <- substr(basename(filename), 10, 16)
   dates <- .dateFromYearDoy(dates)
@@ -434,19 +426,19 @@ modis_watermask <- function(
   , filenames = NULL
   , filedates = NULL
   , years     = 5
-  , threshold = 0.99){
+  , threshold = 0.99) {
 
-  # filenames <- dir("/home/david/ownCloud/University/15. PhD/Chapter_2/03_Data/02_CleanData/00_Floodmaps", full.names = T)
+  # filenames <- dir("/home/david/ownCloud/University/15. PhD/Chapter_2/03_Data/02_CleanData/00_Floodmaps/02_Resampled", full.names = T)
   # filedates <- ymd(basename(filenames))
   # date <- ymd("2018-01-01")
   # years <- 5
   # threshold <- 0.99
 
   # Some error messages
-  if (missing(filenames)){ stop("Provide filenames") }
-  if (missing(filedates)){ stop("Provide filedates") }
-  if (threshold < 0 | threshold > 1){ stop("Threshold needs to be between 0 and 1") }
-  if (years < 0){ stop("Can't have negative years") }
+  if (missing(filenames)) {stop("Provide filenames")}
+  if (missing(filedates)) {stop("Provide filedates")}
+  if (threshold < 0 | threshold > 1) {stop("Threshold needs to be between 0 and 1")}
+  if (years < 0) {stop("Can't have negative years")}
 
   # Make naming nicer
   end_date <- date
@@ -474,24 +466,29 @@ modis_watermask <- function(
   # Sum the layers
   sum <- sum(formask)
 
-  # Identify areas where there was water 99% of the time
+  # Identify areas where there was water xx% of the time
   areas <- sum > threshold * nlyr(formask)
 
-  # Coerce SpatRaster to RasterLayer
-  areas <- raster(areas)
-
   # Polygonize
-  wetmask <- rasterToPolygons(
-      areas
-    , fun       = function(x){ x == 1 }
-    , dissolve  = TRUE
-  )
+  areas   <- subst(areas, 0, NA)
+  wetmask <- as.polygons(areas)
+  wetmask <- aggregate(wetmask)
+
+  # # Legacy
+  # areas <- raster(areas)
+  # wetmask <- rasterToPolygons(
+  #     areas
+  #   , fun       = function(x) { x == 1 }
+  #   , dissolve  = TRUE
+  # )
+  # wetmask <- suppressWarnings(gBuffer(wetmask, width = -1 / 111 * 0.25))
+
 
   # Apply a small negative buffer to avoid errors due to pixel size
-  wetmask <- suppressWarnings(gBuffer(wetmask, width = -1 / 111 * 0.25))
+  # wetmask <- buffer(wetmask, width = -225)
 
   # Return the final watermask
-  return(vect(wetmask))
+  return(wetmask)
 }
 
 #' Compare Spectral Signatures of MODIS Maps
@@ -639,28 +636,111 @@ modis_percentiles <- function(
   return(info)
 }
 
-# Function to find available modis files
-.modisFiles <- function(product = "MCD43A4", version = "006", start_date, end_date, aoi) {
+# Function to search modis database
+.modisFiles <- function(product = "MCD43A4", version = "061", start_date, end_date, aoi, limit = 100) {
 
-  # Get available products
-  search_res <- modSearch(
-      product    = product
-    , collection = version
-    , startDate  = start_date
-    , endDate    = end_date
-    , extent     = extent(aoi)
+  # Ensure dates are parsed correctly
+  start_date <- as.Date(start_date)
+  end_date   <- as.Date(end_date)
+
+  # Obtain a spatial extent from the area of interest as well as temporal extent
+  ext      <- paste(as.vector(ext(aoi)[c(1, 3, 2, 4)]), collapse = ",")
+  temporal <- paste0(start_date, "T00:00:00Z", ",", end_date, "T00:00:00Z")
+
+  # Put all parameters into a list
+  params <- list(
+      short_name   = product
+    ,	temporal     = temporal
+    , downloadable = "true"
+    , bounding_box = ext
   )
-  search_res <- unname(search_res$hdf)
+
+  # Generate url
+  url <- "https://cmr.earthdata.nasa.gov/search/granules"
+
+  # Obtain search results
+  page_num <- 1
+  results  <- NULL
+  while (length(results) < limit) {
+    response <- httr::GET(
+        url    = url
+      , config = httr::add_headers(Accept="text/csv")
+      , query  = c(params, page_num = page_num)
+    )
+
+    # Check for a valid response
+    httr::stop_for_status(response)
+    if (httr::http_type(response) == "text/csv") {
+
+      # Parse the data
+      avail <- utils::read.csv(
+          text             = httr::content(response, as = "text")
+        , check.names      = FALSE
+        , stringsAsFactors = FALSE
+      )
+
+      # Ensure we have a valid url
+      catcher <- tryCatch(urls <- avail[, "Online Access URLs"]
+        , error = function(e){e}
+      )
+      # Break if there is an error
+      if (!inherits(catcher, "error")) {
+        if (length(urls)==0) {
+          break
+        }
+        # Append the full table of results
+        results  <- rbind(results, avail)
+        page_num <- page_num + 1
+      } else {
+        break
+      }
+    } else {
+      stop("Could not find csv for the queried parameters\n")
+    }
+  }
 
   # Extract file info
-  results <- cbind(URL = search_res, .modisInfo(search_res), stringsAsFactors = F)
+  results <- results[, c("Online Access URLs", "Cloud Cover")]
+  results <- cbind(
+      URL         = results$`Online Access URLs`
+    , CloudCover  = results$`Cloud Cover`
+    , .modisInfo(results$`Online Access URLs`)
+    , stringsAsFactors = F
+  )
 
   # Subset to dates of interest
-  results <- subset(results, AcquisitionDate >= start_date & AcquisitionDate <= end_date)
+  results <- subset(results
+    , AcquisitionDate >= start_date
+    & AcquisitionDate <= end_date
+    & Version == version
+  )
 
   # Return dataframe of results
   return(results)
 }
+
+# # Function to find available modis files
+# .modisFiles <- function(product = "MCD43A4", version = "006", start_date, end_date, aoi) {
+#
+#   # Get available products
+#   search_res <- modSearch(
+#       product    = product
+#     , collection = version
+#     , startDate  = start_date
+#     , endDate    = end_date
+#     , extent     = extent(aoi)
+#   )
+#   search_res <- unname(search_res$hdf)
+#
+#   # Extract file info
+#   results <- cbind(URL = search_res, .modisInfo(search_res), stringsAsFactors = F)
+#
+#   # Subset to dates of interest
+#   results <- subset(results, AcquisitionDate >= start_date & AcquisitionDate <= end_date)
+#
+#   # Return dataframe of results
+#   return(results)
+# }
 
 # Helper function to download a single MODIS file
 .modisDownload <- function(dataframe, path = getwd(), username, password, overwrite = F) {
@@ -710,15 +790,14 @@ modis_percentiles <- function(
   , removeHDF = F
   , overwrite = F) {
 
-  # filepath <- downloaded[1]
-
   # Load the layers
   bands <- sds(filepath)
 
   # Currently, terra does not read the layernames correctly
   # print(names(bands))
   # print(bandnames)
-  names(bands) <- gdalUtils::get_subdatasets(filepath)
+  # names(bands) <- gdalUtils::get_subdatasets(filepath)
+  names(bands) <- describe(filepath, sds = T)$var
 
   # Keep only the bands of interest
   bands <- bands[[grep("Nadir.*Band[1-7]", names(bands))]]
@@ -737,9 +816,9 @@ modis_percentiles <- function(
 
   # Make sure the file does not already exist, then save
   if (file.exists(filename) & !overwrite) {
-    cat(paste0("file", filename, "already exists and will not be overwritten...\n"))
-  } else {
-    terra::writeRaster(bands, filename  = filename, overwrite = TRUE)
+      cat(paste0("file", filename, "already exists and will not be overwritten...\n"))
+    } else {
+      terra::writeRaster(bands, filename  = filename, overwrite = TRUE)
   }
 
   # In case the original HDF should be removed, do so
@@ -760,32 +839,19 @@ modis_percentiles <- function(
 
   # Create output name
   filename <- file.path(outdir, outname)
-  if (file.exists(filename) & !overwrite){
+
+  # Check if the file exists
+  if (file.exists(filename) & !overwrite) {
     cat("file", filename, "already exists and is not overwritten...\n")
   } else {
 
+    # Stitch stuff
     files <- lapply(filepaths, rast)
     files <- sprc(files)
     files <- mosaic(files, filename = filename, overwrite = T)
 
-    # # Create a virtual raster
-    # name <- tempfile(fileext = ".vrt")
-    # gdalbuildvrt(gdalfile = filepaths, output.vrt = name)
-    #
-    # # Coerce virtual raster to a true raster
-    # gdal_translate(
-    #     src_dataset   = name
-    #   , dst_dataset   = filename
-    #   , output_Raster = TRUE
-    #   , options       = c("BIGTIFFS=YES")
-    #   , a_srs         = "+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +R=6371007.181 +units=m +no_defs"
-    # )
   }
 
-  # # Remove aux files
-  # remove <- paste0(filename, ".aux.xml")
-  # file.remove(remove)
-  #
   # Return the filepath to the stitched file
   return(filename)
 }

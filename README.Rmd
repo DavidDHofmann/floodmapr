@@ -13,7 +13,7 @@ knitr::opts_chunk$set(
 )
 ```
 
-# floodmapr <img src="man/figures/floodmapr.png" align="right" width="150" height="150"/>
+# floodmapr <img src="man/figures/FloodmaprLogo.png" align="right" width="150" height="150"/>
 `floodmapr` is an R-package that allows you to download and classify  [MODIS
 MCD43A4](https://lpdaac.usgs.gov/products/mcd43a4v006/) satellite imagery into
 binary maps of dryland and water cover. To be able to download data, you need to
@@ -26,7 +26,7 @@ Research Institute](http://www.okavangodata.ub.bw/ori/monitoring/flood_maps/#)).
 You can install the development version of floodmapr from
 [GitHub](https://github.com/) with:
 
-``` r
+``` {r, eval=F}
 # install.packages("devtools")
 devtools::install_github("DavidDHofmann/floodmapr")
 ```
@@ -103,7 +103,7 @@ modis_percentiles(loaded)
 classified <- modis_classify(loaded)
 
 # Visualize classified image (0 = dryland, 1 = water, 2 = clouds)
-plot(classified)
+plot(classified, col = c("white", "cornflowerblue"))
 ```
 
 ## References
