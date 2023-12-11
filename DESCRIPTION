@@ -1,6 +1,6 @@
 Package: floodmapr
 Type: package
-Date: 2020-08-12
+Date: 2023-12-12
 Title: Download and Classify Watermaps for the Okavango Delta
 Version: 0.0.0.9000
 Authors@R:
@@ -9,9 +9,9 @@ Authors@R:
       , family  = "Hofmann"
       , role    = c("aut", "cre")
       , email   = "david.hofmann@uzh.ch"
-      , comment = c(ORCID = "YOUR-ORCID-ID")
+      , comment = c(ORCID = 0000-0003-3477-4365)
     )
-Description: The watermapr package allows you to download MODIS MCD43A4
+Description: The floodmapr package allows you to download MODIS MCD43A4
   satellite imagery and to automatically classify a watermap (also called
   floodmap) for the extent of the Okavango Delta.
 License: GPL-3
@@ -27,7 +27,4 @@ Imports:
     magrittr (>= 2.0.1),
     tidyr (>= 1.1.2),
     lubridate (>= 1.7.9.2),
-    rgeos (>= 0.5-7),
-    gdalUtils (>= 2.0.3.2),
-    terra (>= 1.1-9),
-    RGISTools (>= 1.0.2)
+    terra (>= 1.1-9)
