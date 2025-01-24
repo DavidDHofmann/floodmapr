@@ -59,18 +59,18 @@ modis_download <- function(
   , overwrite_temp = F
   ) {
 
-  # library(terra)
-  # library(tidyverse)
-  # library(lubridate)
-  # dates <- c("2020-01-01")
-  # setwd("/home/david/Schreibtisch")
-  # load("/home/david/ownCloud/Dokumente/Bibliothek/Wissen/R-Scripts/EarthDataLogin.rds")
-  # outdir <- getwd()
-  # tmpdir <- getwd()
-  # overwrite <- T
-  # overwrite_temp <- T
-  # messages <- T
-  # load("/home/david/ownCloud/University/15. PhD/General/R-Packages/floodmapr/R/sysdata.rda")
+#   library(terra)
+#   library(tidyverse)
+#   library(lubridate)
+#   dates <- c("2024-03-15")
+#   setwd("/home/david/Schreibtisch")
+#   load("/home/david/ownCloud/01_Private/Bibliothek/Wissen/R-Scripts/EarthDataLogin.rds")
+#   outdir <- getwd()
+#   tmpdir <- getwd()
+#   overwrite <- T
+#   overwrite_temp <- T
+#   messages <- T
+#   load("/home/david/ownCloud/02_Academia/02_PhD/General/R-Packages/floodmapr/R/sysdata.rda")
 
   # Error messsages
   if (missing(dates)) {stop("Provide dates")}
@@ -84,6 +84,8 @@ modis_download <- function(
 
   # Retrieve area of interest
   aoi <- masks_polygons[masks_polygons$Description == "aoi", ]
+  aoi <- vect(aoi)
+
 
   # Make sure there are no duplicates
   if (length(dates) != length(unique(dates))) {
@@ -129,6 +131,7 @@ modis_download <- function(
         , username  = username
         , password  = password
         , overwrite = T
+        , messages  = messages
       )
     }
   }
@@ -178,7 +181,7 @@ modis_download <- function(
   }
   final <- lapply(1:length(stitched), function(x){
     r <- rast(stitched[x])
-    r <- suppressWarnings(crop(r, spTransform(aoi, crs(r)), snap = "out"))
+    r <- suppressWarnings(crop(r, project(aoi, crs(r)), snap = "out"))
     r <- terra::project(r, "+proj=longlat +datum=WGS84 +no_defs", method = "near")
     r <- crop(r, aoi, snap = "out")
     names(r) <- paste0("Band_", 1:7)
@@ -743,7 +746,7 @@ modis_percentiles <- function(
 # }
 
 # Helper function to download a single MODIS file
-.modisDownload <- function(dataframe, path = getwd(), username, password, overwrite = F) {
+.modisDownload <- function(dataframe, path = getwd(), username, password, overwrite = F, messages = T) {
 
   # Extract url
   url <- dataframe$URL
@@ -764,12 +767,20 @@ modis_percentiles <- function(
       # )
 
       # Download file
-      file <- httr::GET(
-          url
-        , httr::authenticate(username, password, type = "any")
-        , httr::progress()
-        , httr::write_disk(filename, overwrite = overwrite)
-      )
+      if (messages) {
+        file <- httr::GET(
+            url
+          , httr::authenticate(username, password, type = "any")
+          , httr::progress()
+          , httr::write_disk(filename, overwrite = overwrite)
+        )
+      } else {
+        file <- httr::GET(
+            url
+          , httr::authenticate(username, password, type = "any")
+          , httr::write_disk(filename, overwrite = overwrite)
+        )
+      }
     } else {
       warning(paste0("file ", filename, " already exists, skipping download"))
   }
