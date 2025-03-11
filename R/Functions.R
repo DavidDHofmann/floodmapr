@@ -62,7 +62,7 @@ modis_download <- function(
 #   library(terra)
 #   library(tidyverse)
 #   library(lubridate)
-#   dates <- c("2024-03-15")
+#   dates <- c("2024-04-30")
 #   setwd("/home/david/Schreibtisch")
 #   load("/home/david/ownCloud/01_Private/Bibliothek/Wissen/R-Scripts/EarthDataLogin.rds")
 #   outdir <- getwd()
@@ -105,7 +105,11 @@ modis_download <- function(
       , aoi         = aoi
     )
     if (nrow(files) != 2){
-      stop("There are more than two files!\n")
+      if (length(unique(files$AcquisitionDate) == 1)) {
+        files <- subset(files, ProductionDate == max(ProductionDate))
+      } else {
+        stop("There are more than two files!\n")
+      }
     }
     return(files)
   }) %>% do.call(rbind, .)
