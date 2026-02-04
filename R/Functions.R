@@ -2,9 +2,9 @@
 #### Load Dependencies
 ################################################################################
 #' @import terra ggplot2 sp
-#' @importFrom dplyr group_by mutate_all
+#' @importFrom dplyr group_by mutate_all mutate
 #' @importFrom magrittr %>%
-#' @importFrom tidyr nest
+#' @importFrom tidyr nest separate_longer_delim
 #' @importFrom lubridate years ymd
 NULL
 
@@ -59,18 +59,21 @@ modis_download <- function(
   , overwrite_temp = F
   ) {
 
-#   library(terra)
-#   library(tidyverse)
-#   library(lubridate)
-#   dates <- c("2024-04-30")
-#   setwd("/home/david/Schreibtisch")
-#   load("/home/david/ownCloud/01_Private/Bibliothek/Wissen/R-Scripts/EarthDataLogin.rds")
-#   outdir <- getwd()
-#   tmpdir <- getwd()
-#   overwrite <- T
-#   overwrite_temp <- T
-#   messages <- T
-#   load("/home/david/ownCloud/02_Academia/02_PhD/General/R-Packages/floodmapr/R/sysdata.rda")
+  # library(terra)
+  # library(tidyverse)
+  # library(lubridate)
+  # dates <- c("2022-03-28")
+  # # setwd("/home/david/Schreibtisch")
+  # setwd("C:/Users/david/Desktop")
+  # # load("/home/david/ownCloud/01_Private/Bibliothek/Wissen/R-Scripts/EarthDataLogin.rds")
+  # load("D:/SwitchDrive/01_Private/Bibliothek/Wissen/R-Scripts/EarthDataLogin.rds")
+  # outdir <- getwd()
+  # tmpdir <- getwd()
+  # overwrite <- T
+  # overwrite_temp <- T
+  # messages <- T
+  # # load("/home/david/ownCloud/02_Academia/02_PhD/General/R-Packages/floodmapr/R/sysdata.rda")
+  # load("D:/SwitchDrive/02_Academia/02_PhD/General/R-Packages/floodmapr/R/sysdata.rda")
 
   # Error messsages
   if (missing(dates)) {stop("Provide dates")}
@@ -117,6 +120,14 @@ modis_download <- function(
   # Check if some of the files already exist
   files <- file.path(tmpdir, basename(todownload$URL))
 
+  # Setup cookie files
+	txt <- paste("machine urs.earthdata.nasa.gov login", username, "password", password)
+	cookie_file <- file.path(tempdir(), "cookies.XXXXXXXXXX")
+	netrc_file  <- file.path(tempdir(), "netrc.XXXXXXXXXX")
+	writeLines("", cookie_file)
+	writeLines(txt, netrc_file)
+	httr::set_config(httr::config(netrc_file = netrc_file))
+
   # Download all selected files to a temporary directory
   downloaded <- rep(NA, nrow(todownload))
   for (i in 1:nrow(todownload)) {
@@ -130,12 +141,13 @@ modis_download <- function(
       downloaded[i] <- files[i]
     } else {
       downloaded[i] <- .modisDownload(
-          dataframe = todownload[i, ]
-        , path      = tmpdir
-        , username  = username
-        , password  = password
-        , overwrite = T
-        , messages  = messages
+          dataframe   = todownload[i, ]
+        , path        = tmpdir
+        , username    = username
+        , password    = password
+        , overwrite   = T
+        , messages    = messages
+        , cookie_file = cookie_file
       )
     }
   }
@@ -176,6 +188,7 @@ modis_download <- function(
 
   # Remove unstitched files
   file.remove(extracted)
+	file.remove(c(netrc_file, cookie_file))
 
   # Reproject and crop stitched raster, then save. Note that we will use ngb for
   # resampling. The reason is that bilinear interpolation would potentially
@@ -630,7 +643,7 @@ modis_percentiles <- function(
 #### Helper Functions
 ################################################################################
 # Function to extract information from modis filenames
-.modisInfo <- function(urlname){
+.modisInfo <- function(urlname) {
   name <- basename(urlname)
   info <- strsplit(name, split = "\\.")
   info <- lapply(info, rbind)
@@ -660,6 +673,7 @@ modis_percentiles <- function(
     ,	temporal     = temporal
     , downloadable = "true"
     , bounding_box = ext
+    , version      = version
   )
 
   # Generate url
@@ -692,7 +706,7 @@ modis_percentiles <- function(
       )
       # Break if there is an error
       if (!inherits(catcher, "error")) {
-        if (length(urls)==0) {
+        if (length(urls) == 0) {
           break
         }
         # Append the full table of results
@@ -707,13 +721,12 @@ modis_percentiles <- function(
   }
 
   # Extract file info
-  results <- results[, c("Online Access URLs", "Cloud Cover")]
-  results <- cbind(
-      URL         = results$`Online Access URLs`
-    , CloudCover  = results$`Cloud Cover`
-    , .modisInfo(results$`Online Access URLs`)
-    , stringsAsFactors = F
-  )
+  results <- results[, c("Online Access URLs", "Cloud Cover")] %>%
+    setNames(c("URL", "CloudCover")) %>%
+    separate_longer_delim(1, delim = ",") %>%
+    mutate(Type = tools::file_ext(URL)) %>%
+    subset(Type == "hdf")
+  results <- cbind(results, .modisInfo(results$URL), stringsAsFactors = F)
 
   # Subset to dates of interest
   results <- subset(results
@@ -726,31 +739,8 @@ modis_percentiles <- function(
   return(results)
 }
 
-# # Function to find available modis files
-# .modisFiles <- function(product = "MCD43A4", version = "006", start_date, end_date, aoi) {
-#
-#   # Get available products
-#   search_res <- modSearch(
-#       product    = product
-#     , collection = version
-#     , startDate  = start_date
-#     , endDate    = end_date
-#     , extent     = extent(aoi)
-#   )
-#   search_res <- unname(search_res$hdf)
-#
-#   # Extract file info
-#   results <- cbind(URL = search_res, .modisInfo(search_res), stringsAsFactors = F)
-#
-#   # Subset to dates of interest
-#   results <- subset(results, AcquisitionDate >= start_date & AcquisitionDate <= end_date)
-#
-#   # Return dataframe of results
-#   return(results)
-# }
-
 # Helper function to download a single MODIS file
-.modisDownload <- function(dataframe, path = getwd(), username, password, overwrite = F, messages = T) {
+.modisDownload <- function(dataframe, path = getwd(), username, password, overwrite = F, messages = T, cookie_file) {
 
   # Extract url
   url <- dataframe$URL
@@ -761,27 +751,27 @@ modis_percentiles <- function(
   # We only download the file if it doesn't exist yet, or if we want to
   # overwrite it anyways
   if ((!file.exists(filename)) | overwrite) {
-
-      # # Download file
-      # download.file(
-      #     url      = url
-      #   , destfile = filename
-      #   , method   = "wget"
-      #   , extra    = paste("--user", username, "--password", password)
-      # )
-
-      # Download file
       if (messages) {
-        file <- httr::GET(
-            url
-          , httr::authenticate(username, password, type = "any")
+        file <- httr::GET(url
+          , httr::add_headers(Cookie = readLines(cookie_file))
+          , httr::set_cookies(file = cookie_file)
+          , httr::config(
+              netrc          = TRUE
+            , followlocation = TRUE
+            , ssl_verifypeer = 0
+          )
           , httr::progress()
           , httr::write_disk(filename, overwrite = overwrite)
         )
       } else {
-        file <- httr::GET(
-            url
-          , httr::authenticate(username, password, type = "any")
+        file <- httr::GET(url
+          , httr::add_headers(Cookie = readLines(cookie_file))
+          , httr::set_cookies(file = cookie_file)
+          , httr::config(
+              netrc          = TRUE
+            , followlocation = TRUE
+            , ssl_verifypeer = 0
+          )
           , httr::write_disk(filename, overwrite = overwrite)
         )
       }

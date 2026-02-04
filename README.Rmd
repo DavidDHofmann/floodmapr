@@ -75,7 +75,10 @@ algorithm is able to learn about potential long-term changes in the system.
 Here is a complete example of the above outlined workflow
 
 ```{r, echo = F}
-load("/home/david/ownCloud/Dokumente/Bibliothek/Wissen/R-Scripts/EarthDataLogin.rds")
+load(ifelse(Sys.info()["sysname"] == "Linux"
+  , "/media/david/SharedSpace/SwitchDrive/01_Private/Bibliothek/Wissen/R-Scripts/EarthDataLogin.rds"
+  , "D:/SwitchDrive/01_Private/Bibliothek/Wissen/R-Scripts/EarthDataLogin.rds"
+))
 ```
 
 ```{r, echo = T, warning = F, message = F}
